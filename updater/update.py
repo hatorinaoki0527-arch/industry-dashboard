@@ -203,7 +203,7 @@ def extract_js_assignment(text, variable):
 
 
 def parse_number_list(value, label):
-    parts = [x.strip() for x in re.split(r"[,_]", value)]
+    parts = [x.strip() for x in re.split(r"[,_]", value) if x.strip()]
 
     if len(parts) != 33:
         raise UpdateError(
