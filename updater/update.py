@@ -351,7 +351,7 @@ def build_data(names, current_data, history_rows):
                 "日期": date_text,
                 "时间": time_text,
                 "市场": "日本",
-                "分类体系": "東証33業種",
+                "分类体系": "东证33",
                 "一级行业": name,
                 "行业指数名称": name,
                 "行业指数值": current,
