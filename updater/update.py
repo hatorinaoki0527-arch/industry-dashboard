@@ -20,11 +20,11 @@ GYOUSHU_URLS = ("https://nikkei225jp.com/chart/gyoushu.php",)
 # 根据已观察到的文件名/同目录推定；
 # 如果 GitHub Actions 返回 404，再回浏览器 Headers 确认这个地址。
 CURRENT_JS_URL = (
-    "https://nikkei225jp.com/_data/_hsDATA/min/country_jp_gyo.js"
+    "https://nikkei225jp.com/_data/_nfsDATA/min/country_jp_gyo.js"
 )
 
 PAST_JS_URL = (
-    "https://nikkei225jp.com/_data/_hsDATA/min/country_jp_gyo_past.js"
+    "https://nikkei225jp.com/_data/_nfsDATA/min/country_jp_gyo_past.js"
 )
 
 HEADERS = {
