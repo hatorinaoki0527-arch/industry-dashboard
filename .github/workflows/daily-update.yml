@@ -1,0 +1,37 @@
+name: Daily Update
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "30 8 * * *"
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run updater
+        run: python updater/update.py
+
+      - name: Commit and push index.html if changed
+        run: |
+          if git diff --quiet -- index.html; then
+            echo "index.html 没有变化，无需提交。"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add index.html
+            git commit -m "chore: daily update index.html"
+            git push
+          fi
