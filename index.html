@@ -1,709 +1,426 @@
 <!doctype html>
 <html lang="zh-CN">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="light">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>行业轮动仪表盘</title>
-
   <style>
     :root{
-      --bg:#f5f7fa;
-      --panel:#fff;
-      --panel-soft:#f8fafc;
-      --text:#172033;
-      --muted:#687386;
-      --line:#e4e9f0;
-      --accent:#2457d6;
-      --accent-soft:#edf3ff;
-      --up:#d9363e;
-      --up-soft:#fff0f0;
-      --down:#159447;
-      --down-soft:#edf9f1;
-      --neutral:#7a8495;
-      --shadow:0 10px 28px rgba(21,35,60,.06);
-      --radius:14px;
+      --bg:#f5f7fb;
+      --panel:#ffffff;
+      --line:#dfe5ef;
+      --text:#16304d;
+      --muted:#6e7f97;
+      --blue:#2f6df6;
+      --blue-weak:#eaf1ff;
+      --red:#d84e57;
+      --green:#16916b;
+      --orange:#f59e0b;
+      --shadow:0 8px 30px rgba(15,35,95,.06);
+      --radius:18px;
     }
-
     *{box-sizing:border-box}
-
-    html{
-      min-width:320px;
-      background:var(--bg);
+    html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif}
+    a{text-decoration:none;color:inherit}
+    button{font:inherit}
+    .topbar{
+      background:#0d2450;color:#fff;padding:18px 24px;
+      display:flex;align-items:center;justify-content:space-between;gap:16px;
+      position:sticky;top:0;z-index:20;box-shadow:0 2px 18px rgba(0,0,0,.08);
     }
-
-    body{
-      margin:0;
-      color:var(--text);
-      background:var(--bg);
-      font-family:
-        -apple-system,
-        BlinkMacSystemFont,
-        "Segoe UI",
-        "PingFang SC",
-        "Hiragino Sans GB",
-        "Microsoft YaHei",
-        Arial,
-        sans-serif;
-      line-height:1.5;
+    .brand{display:flex;align-items:center;gap:14px}
+    .brand-logo{
+      width:44px;height:44px;border-radius:12px;background:#3f6df1;
+      display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;
     }
+    .brand-title{font-size:28px;font-weight:800;line-height:1}
+    .brand-sub{font-size:12px;opacity:.75;letter-spacing:.12em;margin-top:4px}
+    .top-links{display:flex;gap:20px;align-items:center;flex-wrap:wrap}
+    .top-links a{opacity:.9;font-weight:700}
+    .top-note{font-size:13px;opacity:.75}
 
-    button,input{font:inherit}
-    button{color:inherit}
-
-    .page{
-      width:min(1500px,100%);
-      margin:0 auto;
-      padding:28px 24px 40px;
-    }
-
-    .page-header{
-      display:flex;
-      align-items:flex-end;
-      justify-content:space-between;
-      gap:20px;
-      margin-bottom:22px;
-    }
-
-    .title-group h1{
-      margin:0;
-      font-size:clamp(24px,3vw,34px);
-      line-height:1.2;
-    }
-
-    .title-group p{
-      margin:7px 0 0;
-      color:var(--muted);
-      font-size:14px;
-    }
-
-    .market-tabs{
-      display:inline-flex;
-      gap:6px;
-      padding:5px;
-      border:1px solid var(--line);
-      border-radius:12px;
-      background:var(--panel);
-      box-shadow:0 4px 16px rgba(21,35,60,.04);
-    }
-
-    .market-tab{
-      min-height:40px;
-      padding:8px 15px;
-      border:0;
-      border-radius:9px;
-      background:transparent;
-      color:var(--muted);
-      cursor:pointer;
-      font-weight:700;
-      white-space:nowrap;
-    }
-
-    .market-tab:hover{
-      color:var(--text);
-      background:var(--panel-soft);
-    }
-
-    .market-tab.active{
-      color:var(--accent);
-      background:var(--accent-soft);
-    }
-
-    .market-view[hidden]{
-      display:none!important;
-    }
-
-    .summary-grid{
-      display:grid;
-      grid-template-columns:repeat(6,minmax(0,1fr));
-      gap:12px;
-      margin-bottom:16px;
-    }
-
-    .summary-card{
-      min-width:0;
-      min-height:104px;
-      padding:16px;
-      border:1px solid var(--line);
-      border-radius:var(--radius);
-      background:var(--panel);
-      box-shadow:var(--shadow);
-    }
-
-    .summary-label{
-      color:var(--muted);
-      font-size:12px;
-      font-weight:700;
-    }
-
-    .summary-value{
-      display:flex;
-      align-items:baseline;
-      gap:6px;
-      min-width:0;
-      margin-top:10px;
-      font-size:20px;
-      font-weight:800;
-      line-height:1.25;
-    }
-
-    .summary-value.industry-result{
-      display:block;
-      overflow:hidden;
-      font-size:16px;
-      text-overflow:ellipsis;
-      white-space:nowrap;
-    }
-
-    .summary-detail{
-      display:block;
-      margin-top:4px;
-      font-size:13px;
-      font-weight:800;
-    }
-
-    .up{color:var(--up)!important}
-    .down{color:var(--down)!important}
-    .neutral{color:var(--neutral)!important}
-
-    .table-panel{
-      overflow:hidden;
-      border:1px solid var(--line);
-      border-radius:var(--radius);
-      background:var(--panel);
-      box-shadow:var(--shadow);
-    }
-
-    .table-toolbar{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:16px;
-      padding:14px 16px;
-      border-bottom:1px solid var(--line);
-    }
-
-    .search-wrap{
-      position:relative;
-      width:min(360px,100%);
-    }
-
-    .search-icon{
-      position:absolute;
-      top:50%;
-      left:13px;
-      color:var(--muted);
-      pointer-events:none;
-      transform:translateY(-50%);
-    }
-
-    .search-input{
-      width:100%;
-      height:42px;
-      padding:9px 13px 9px 38px;
-      border:1px solid var(--line);
-      border-radius:10px;
-      outline:none;
-      background:var(--panel-soft);
-      color:var(--text);
-    }
-
-    .search-input:focus{
-      border-color:rgba(36,87,214,.55);
+    .layout{display:grid;grid-template-columns:250px 1fr;min-height:calc(100vh - 80px)}
+    .sidebar{
+      border-right:1px solid var(--line);
       background:#fff;
-      box-shadow:0 0 0 3px rgba(36,87,214,.1);
+      padding:22px 18px;
+      position:sticky;top:80px;height:calc(100vh - 80px);overflow:auto;
+    }
+    .side-title{font-size:14px;color:#8b98aa;font-weight:700;margin:8px 10px 14px}
+    .market-list{display:grid;gap:14px}
+    .market-item{
+      background:#fff;border:1px solid var(--line);border-radius:18px;padding:18px 16px;
+      display:flex;align-items:center;justify-content:space-between;gap:12px;
+      box-shadow:var(--shadow)
+    }
+    .market-item.active{background:#edf3ff;border-color:#bfd0ff}
+    .market-left{display:flex;align-items:center;gap:14px}
+    .market-icon{
+      width:44px;height:44px;border-radius:14px;background:#edf1f8;color:#213a73;
+      display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800
+    }
+    .market-item.active .market-icon{background:#2f63d7;color:#fff}
+    .market-name{font-size:18px;font-weight:800}
+    .market-desc{font-size:12px;color:var(--muted);margin-top:4px}
+    .side-help{
+      margin-top:24px;padding:18px 14px;border-top:1px solid var(--line);color:var(--muted);line-height:1.8
+    }
+    .side-help strong{display:block;color:var(--text);margin-bottom:8px}
+
+    .content{padding:28px 28px 60px;overflow:auto}
+    .hero{
+      display:flex;align-items:flex-start;justify-content:space-between;gap:20px;flex-wrap:wrap;
+      margin-bottom:18px;
+    }
+    .eyebrow{font-size:14px;font-weight:900;color:#7558d8;letter-spacing:.12em}
+    .hero h1{font-size:58px;line-height:1.05;margin:6px 0 8px}
+    .hero p{margin:0;color:var(--muted);font-size:28px;font-weight:700}
+    .hero-actions{display:flex;gap:12px;flex-wrap:wrap}
+    .btn{
+      border:none;border-radius:16px;padding:14px 22px;font-weight:800;cursor:pointer
+    }
+    .btn.primary{background:var(--blue);color:#fff}
+    .btn.secondary{background:#fff;color:var(--text);border:1px solid var(--line)}
+    .btn.ghost{background:var(--blue-weak);color:var(--blue)}
+    .tipbar{
+      background:#eef4ff;border:1px solid #d8e4ff;color:#4d6082;
+      padding:14px 16px;border-radius:16px;margin-bottom:22px;font-size:15px
+    }
+    .tabs{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:22px}
+    .tab{
+      border:1px solid var(--line);background:#fff;padding:12px 18px;border-radius:14px;font-weight:800;color:#51637f;cursor:pointer
+    }
+    .tab.active{background:#eaf1ff;color:var(--blue);border-color:#bfd0ff}
+    .section{display:none}
+    .section.active{display:block}
+
+    .stats-grid{
+      display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin-bottom:22px
+    }
+    .stat-card{
+      background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:18px 20px;box-shadow:var(--shadow)
+    }
+    .stat-label{font-size:15px;color:#607289;font-weight:800;margin-bottom:10px}
+    .stat-value{font-size:34px;font-weight:900}
+    .stat-sub{margin-top:6px;color:var(--muted);font-size:15px;font-weight:700}
+    .up{color:var(--red)}
+    .down{color:var(--green)}
+    .flat{color:#77859a}
+
+    .grid-2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+    .panel{
+      background:#fff;border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:var(--shadow)
+    }
+    .panel-head{
+      display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap
+    }
+    .panel-title{font-size:26px;font-weight:900}
+    .panel-sub{font-size:14px;color:var(--muted);font-weight:700}
+    .mini-table{width:100%;border-collapse:collapse}
+    .mini-table th,.mini-table td{padding:12px 10px;border-bottom:1px solid #edf1f6;text-align:left;font-size:15px}
+    .mini-table th{color:#6b7c92;font-size:13px;text-transform:uppercase;letter-spacing:.05em}
+    .rank-badge{
+      display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:28px;border-radius:10px;
+      background:#eef3fb;font-weight:900;color:#465a7b
     }
 
-    .row-count{
-      flex:0 0 auto;
-      color:var(--muted);
-      font-size:13px;
+    .toolbar{
+      display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;align-items:center;
+      background:#fff;border:1px solid var(--line);border-radius:18px;padding:14px 16px;box-shadow:var(--shadow);margin-bottom:22px
     }
-
-    .table-scroll{
-      overflow-x:auto;
+    .searchbar{display:flex;gap:10px;align-items:center;flex:1;min-width:260px}
+    .searchbar input,.toolbar select{
+      width:100%;padding:14px 16px;border-radius:14px;border:1px solid var(--line);background:#fff;font-size:16px
     }
+    .toolbar .right{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .legend{font-size:14px;color:var(--muted);font-weight:700}
+    .legend .up{font-weight:900}
+    .legend .down{font-weight:900}
 
-    table{
-      width:100%;
-      min-width:1160px;
-      border-collapse:separate;
-      border-spacing:0;
-      font-variant-numeric:tabular-nums;
+    .board-title{
+      display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:14px
     }
+    .board-title h2{font-size:40px;margin:0}
+    .board-title small{font-size:18px;color:var(--muted);font-weight:700}
 
-    thead th{
-      position:sticky;
-      top:0;
-      z-index:2;
-      padding:0;
-      border-bottom:1px solid var(--line);
-      background:#f8fafc;
-      color:#536075;
-      text-align:right;
-      white-space:nowrap;
+    .group-grid{
+      display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px
     }
-
-    thead th:first-child{
-      text-align:left;
+    .group-card{
+      background:#fff;border:1px solid var(--line);border-radius:18px;overflow:hidden;box-shadow:var(--shadow)
     }
-
-    .sort-button{
-      display:inline-flex;
-      align-items:center;
-      justify-content:flex-end;
-      gap:5px;
-      width:100%;
-      min-height:48px;
-      padding:11px 12px;
-      border:0;
-      background:transparent;
-      color:inherit;
-      cursor:pointer;
-      font-size:12px;
-      font-weight:800;
-      text-align:inherit;
+    .group-header{
+      padding:16px 18px;border-bottom:1px solid #edf1f6;display:flex;justify-content:space-between;gap:12px
     }
-
-    thead th:first-child .sort-button{
-      justify-content:flex-start;
-      padding-left:16px;
+    .group-name{font-size:18px;font-weight:900}
+    .group-count,.group-meta{font-size:14px;color:var(--muted);font-weight:700}
+    .group-body{padding:0 16px 8px}
+    .industry-row{
+      border-bottom:1px solid #edf1f6;padding:14px 0;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;
+      cursor:pointer
     }
-
-    .sort-button:hover{
-      color:var(--accent);
-      background:rgba(36,87,214,.04);
+    .industry-row:last-child{border-bottom:none}
+    .industry-main{display:flex;flex-direction:column;gap:6px}
+    .industry-name{font-size:17px;font-weight:900}
+    .industry-ja{font-size:12px;color:var(--muted);font-weight:700}
+    .industry-meta{display:flex;gap:8px;flex-wrap:wrap}
+    .pill{
+      display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;
+      background:#f3f6fb;color:#53657e;font-size:12px;font-weight:800
     }
-
-    .sort-mark{
-      display:inline-block;
-      width:12px;
-      color:#a2aaba;
-      font-size:10px;
-      text-align:center;
+    .pill.blue{background:#edf4ff;color:#2c62dd}
+    .pill.orange{background:#fff5e8;color:#b26d00}
+    .pill.green{background:#ebfaf4;color:#0e8b64}
+    .pill.red{background:#fff0f1;color:#c5424b}
+    .industry-right{
+      display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:8px;min-width:88px
     }
+    .industry-pct{font-size:18px;font-weight:900}
+    .industry-rank{font-size:13px;color:var(--muted);font-weight:800}
 
-    tbody td{
-      height:55px;
-      padding:11px 12px;
-      border-bottom:1px solid #edf0f4;
-      background:#fff;
-      text-align:right;
-      white-space:nowrap;
+    .rotation-table-wrap{
+      background:#fff;border:1px solid var(--line);border-radius:18px;overflow:hidden;box-shadow:var(--shadow)
     }
-
-    tbody td:first-child{
-      padding-left:16px;
-      text-align:left;
+    .rotation-table{width:100%;border-collapse:collapse}
+    .rotation-table th,.rotation-table td{
+      padding:14px 12px;border-bottom:1px solid #edf1f6;text-align:left;font-size:14px
     }
-
-    tbody tr:last-child td{
-      border-bottom:0;
+    .rotation-table th{
+      background:#f8fbff;color:#607289;font-size:13px;position:sticky;top:0
     }
+    .rotation-table tr:hover td{background:#fcfdff}
+    .clickable{cursor:pointer}
 
-    tbody tr:hover td{
-      background:#fafcff;
+    .detail-layout{
+      display:grid;grid-template-columns:1.15fr .85fr;gap:18px
     }
-
-    .industry-name{
-      font-weight:800;
+    .detail-grid{
+      display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px
     }
-
-    .industry-name small{
-      display:block;
-      margin-top:2px;
-      color:var(--muted);
-      font-size:11px;
-      font-weight:500;
+    .detail-metric{
+      background:#f8fbff;border:1px solid #e6edf9;border-radius:14px;padding:14px
     }
-
-    .rank-cell{
-      font-weight:800;
+    .detail-metric .k{font-size:13px;color:#6a7c94;font-weight:800}
+    .detail-metric .v{font-size:22px;font-weight:900;margin-top:8px}
+    .detail-card{
+      background:#fff;border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:var(--shadow)
     }
+    .detail-stock-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+    .stock-box{
+      border:1px solid #edf1f6;border-radius:14px;padding:14px;background:#fbfcff
+    }
+    .stock-box h4{margin:0 0 10px;font-size:17px}
+    .stock-empty{
+      padding:26px 12px;text-align:center;color:var(--muted);line-height:1.8
+    }
+    .stock-list{display:grid;gap:10px}
+    .stock-item{
+      display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px dashed #e7edf5
+    }
+    .stock-item:last-child{border-bottom:none}
+    .stock-name{font-weight:800}
+    .stock-sub{font-size:12px;color:var(--muted)}
+    .flow-tag{
+      display:inline-flex;align-items:center;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:900
+    }
+    .flow-in{background:#fff0f1;color:#c8434c}
+    .flow-out{background:#ebfaf4;color:#0e8b64}
+    .flow-wait{background:#f3f6fb;color:#53657e}
 
+    .future-grid{
+      display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px
+    }
+    .future-card{
+      background:#fff;border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:var(--shadow)
+    }
+    .future-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+    .future-title{font-size:18px;font-weight:900}
     .badge{
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      min-height:26px;
-      padding:3px 9px;
-      border-radius:999px;
-      font-size:12px;
-      font-weight:800;
+      display:inline-flex;align-items:center;padding:5px 10px;border-radius:999px;background:#fff5e8;color:#b26d00;font-size:12px;font-weight:900
+    }
+    .footer-note{
+      margin-top:28px;padding-top:18px;border-top:1px solid var(--line);color:var(--muted);font-size:14px
     }
 
-    .badge-up{
-      color:var(--up);
-      background:var(--up-soft);
+    .empty-full{
+      background:#fff;border:1px solid var(--line);border-radius:22px;padding:80px 24px;text-align:center;box-shadow:var(--shadow)
     }
-
-    .badge-down{
-      color:var(--down);
-      background:var(--down-soft);
-    }
-
-    .badge-neutral{
-      color:var(--neutral);
-      background:#f0f2f5;
-    }
-
-    .empty-state{
-      display:grid;
-      min-height:310px;
-      padding:36px 20px;
-      place-items:center;
-      text-align:center;
-    }
-
-    .empty-state-inner{
-      max-width:520px;
-    }
-
     .empty-icon{
-      display:grid;
-      width:54px;
-      height:54px;
-      margin:0 auto 15px;
-      border-radius:50%;
-      background:var(--accent-soft);
-      color:var(--accent);
-      font-size:26px;
-      font-weight:800;
-      place-items:center;
+      width:60px;height:60px;border-radius:50%;margin:0 auto 18px;background:#edf2ff;color:#2f63d7;
+      display:flex;align-items:center;justify-content:center;font-size:34px;font-weight:900
     }
+    .empty-full h3{font-size:28px;margin:0 0 10px}
+    .empty-full p{margin:0;color:var(--muted);font-size:18px;line-height:1.8}
 
-    .empty-state h2{
-      margin:0;
-      font-size:20px;
+    @media (max-width:1400px){
+      .stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .group-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .future-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .detail-layout{grid-template-columns:1fr}
     }
-
-    .empty-state p{
-      margin:9px 0 0;
-      color:var(--muted);
-      font-size:14px;
-    }
-
-    .other-market-empty{
-      min-height:420px;
-      border:1px solid var(--line);
-      border-radius:var(--radius);
-      background:var(--panel);
-      box-shadow:var(--shadow);
-    }
-
-    .data-error{
-      color:var(--down);
-    }
-
-    @media(max-width:1180px){
-      .summary-grid{
-        grid-template-columns:repeat(3,minmax(0,1fr));
-      }
-    }
-
-    @media(max-width:760px){
-      .page{
-        padding:18px 12px 28px;
-      }
-
-      .page-header{
-        align-items:stretch;
-        flex-direction:column;
-        margin-bottom:16px;
-      }
-
-      .market-tabs{
-        display:grid;
-        grid-template-columns:repeat(3,minmax(0,1fr));
-        width:100%;
-      }
-
-      .market-tab{
-        min-width:0;
-        padding:8px 6px;
-        font-size:13px;
-      }
-
-      .summary-grid{
-        grid-template-columns:repeat(2,minmax(0,1fr));
-        gap:9px;
-      }
-
-      .summary-card{
-        min-height:96px;
-        padding:13px;
-      }
-
-      .summary-value{
-        font-size:18px;
-      }
-
-      .table-toolbar{
-        align-items:stretch;
-        flex-direction:column;
-        gap:9px;
-      }
-
-      .search-wrap{
-        width:100%;
-      }
-    }
-
-    @media(max-width:420px){
-      .summary-grid{
-        grid-template-columns:1fr;
-      }
+    @media (max-width:980px){
+      .layout{grid-template-columns:1fr}
+      .sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--line)}
+      .hero h1{font-size:42px}
+      .grid-2,.group-grid,.future-grid,.detail-stock-grid,.detail-grid{grid-template-columns:1fr}
+      .stats-grid{grid-template-columns:1fr}
+      .rotation-table-wrap{overflow:auto}
+      .rotation-table{min-width:920px}
     }
   </style>
 </head>
-
 <body>
-  <main class="page">
-
-    <header class="page-header">
-      <div class="title-group">
-        <h1>行业轮动仪表盘</h1>
-        <p>日本市场 · 东证33行业</p>
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-logo">▦</div>
+      <div>
+        <div class="brand-title">行业观察</div>
+        <div class="brand-sub">SECTOR ATLAS</div>
       </div>
+    </div>
+    <div class="top-links">
+      <a href="#overview">总览</a>
+      <a href="#board">行业看板</a>
+      <a href="#rotation">强弱轮动</a>
+      <a href="#detail">行业详情</a>
+      <span class="top-note">• 本地运行 · 离线可用</span>
+    </div>
+  </header>
 
-      <nav class="market-tabs" aria-label="市场选择">
-        <button class="market-tab" type="button" data-market="china">
-          中国A股
-        </button>
-
-        <button class="market-tab active" type="button" data-market="japan">
-          日本市场
-        </button>
-
-        <button class="market-tab" type="button" data-market="usa">
-          美国市场
-        </button>
-      </nav>
-    </header>
-
-    <section class="market-view" data-view="japan">
-
-      <div id="japan-content" hidden>
-
-        <section class="summary-grid">
-
-          <article class="summary-card">
-            <div class="summary-label">观测日期</div>
-            <div class="summary-value" id="summary-date">—</div>
-          </article>
-
-          <article class="summary-card">
-            <div class="summary-label">行业覆盖</div>
-            <div class="summary-value" id="summary-coverage">—</div>
-          </article>
-
-          <article class="summary-card">
-            <div class="summary-label">33行业平均涨跌</div>
-            <div class="summary-value" id="summary-average">—</div>
-          </article>
-
-          <article class="summary-card">
-            <div class="summary-label">强势 / 弱势</div>
-            <div class="summary-value">
-              <span id="summary-strong" class="up">—</span>
-              <span class="neutral">/</span>
-              <span id="summary-weak" class="down">—</span>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="side-title">市场分区</div>
+      <div class="market-list">
+        <div class="market-item">
+          <div class="market-left">
+            <div class="market-icon">中</div>
+            <div>
+              <div class="market-name">中国 A股</div>
+              <div class="market-desc">申万2021 · 行业（待接入）</div>
             </div>
-          </article>
-
-          <article class="summary-card">
-            <div class="summary-label">最强行业</div>
-            <div class="summary-value industry-result" id="summary-best-name">—</div>
-            <span class="summary-detail" id="summary-best-value">—</span>
-          </article>
-
-          <article class="summary-card">
-            <div class="summary-label">最弱行业</div>
-            <div class="summary-value industry-result" id="summary-worst-name">—</div>
-            <span class="summary-detail" id="summary-worst-value">—</span>
-          </article>
-
-        </section>
-
-        <section class="table-panel">
-
-          <div class="table-toolbar">
-
-            <label class="search-wrap">
-              <span class="search-icon">⌕</span>
-
-              <input
-                class="search-input"
-                id="industry-search"
-                type="search"
-                placeholder="搜索行业"
-                autocomplete="off"
-              >
-            </label>
-
-            <div class="row-count" id="row-count">
-              共 0 个行业
-            </div>
-
           </div>
-
-          <div class="table-scroll">
-
-            <table>
-
-              <thead>
-                <tr>
-
-                  <th data-column="industry">
-                    <button class="sort-button" data-sort="industry">
-                      行业 <span class="sort-mark">↕</span>
-                    </button>
-                  </th>
-
-                  <th data-column="indexValue">
-                    <button class="sort-button" data-sort="indexValue">
-                      指数值 <span class="sort-mark">↕</span>
-                    </button>
-                  </th>
-
-                  <th data-column="today">
-                    <button class="sort-button" data-sort="today">
-                      今日 <span class="sort-mark">↕</span>
-                    </button>
-                  </th>
-
-                  <th data-column="rs">
-                    <button class="sort-button" data-sort="rs">
-                      RS <span class="sort-mark">↕</span>
-                    </button>
-                  </th>
-
-                  <th data-column="return5">
-                    <button class="sort-button" data-sort="return5">
-                      5日 <span class="sort-mark">↕</span>
-                    </button>
-                  </th>
-
-                  <th data-column="return20">
-                    <button class="sort-button" data-sort="return20">
-                      20日 <span class="sort-mark">↕</span>
-                    </button>
-                  </th>
-
-                  <th data-column="rank">
-                    <button class="sort-button" data-sort="rank">
-                      当日排名 <span class="sort-mark">↑</span>
-                    </button>
-                  </th>
-
-                  <th data-column="rankChange">
-                    <button class="sort-button" data-sort="rankChange">
-                      排名变化 <span class="sort-mark">↕</span>
-                    </button>
-                  </th>
-
-                  <th data-column="rotation">
-                    <button class="sort-button" data-sort="rotation">
-                      轮动 <span class="sort-mark">↕</span>
-                    </button>
-                  </th>
-
-                  <th data-column="streakSort">
-                    <button class="sort-button" data-sort="streakSort">
-                      连续状态 <span class="sort-mark">↕</span>
-                    </button>
-                  </th>
-
-                </tr>
-              </thead>
-
-              <tbody id="industry-table-body"></tbody>
-
-            </table>
-
-          </div>
-        </section>
-      </div>
-
-      <section class="table-panel empty-state" id="japan-empty">
-
-        <div class="empty-state-inner">
-
-          <div class="empty-icon">!</div>
-
-          <h2>暂无数据，请先运行 Actions → Daily Update</h2>
-
-          <p>
-            Daily Update 完成后，
-            页面会自动读取 embedded-data 中的真实日本市场数据。
-          </p>
-
+          <div style="font-size:24px;color:#9aa7ba">›</div>
         </div>
 
+        <div class="market-item active">
+          <div class="market-left">
+            <div class="market-icon">日</div>
+            <div>
+              <div class="market-name">日本市场</div>
+              <div class="market-desc">东证33 · 33个行业</div>
+            </div>
+          </div>
+          <div style="font-size:24px;color:#8091ad">›</div>
+        </div>
+
+        <div class="market-item">
+          <div class="market-left">
+            <div class="market-icon">美</div>
+            <div>
+              <div class="market-name">美国市场</div>
+              <div class="market-desc">GICS · 部门（待接入）</div>
+            </div>
+          </div>
+          <div style="font-size:24px;color:#9aa7ba">›</div>
+        </div>
+      </div>
+
+      <div class="side-help">
+        <strong>各市场独立查看</strong>
+        行业、股票、榜单与历史日期分开读取。<br>
+        当前页面先完成日本市场行业层级数据。<br><br>
+        <strong>下一步可继续接入</strong>
+        日本225寄与度 / 热力图 / 技术图 / 历史极值 / 行业个股榜单
+      </div>
+    </aside>
+
+    <main class="content">
+      <div class="hero">
+        <div>
+          <div class="eyebrow">JP MARKET &nbsp;&nbsp; Asia/Tokyo</div>
+          <h1>日本市场</h1>
+          <p>东证33行业 · 行业轮动与强弱观察</p>
+        </div>
+        <div class="hero-actions">
+          <button class="btn primary" id="jump-board">行业看板</button>
+          <button class="btn secondary" id="jump-rotation">强弱轮动</button>
+          <button class="btn ghost" id="jump-detail">行业详情</button>
+        </div>
+      </div>
+
+      <div class="tipbar" id="tipbar">
+        已导入数据按观测日期读取；个股排行/寄与度/热力图等模块目前保留入口，待真实数据源接入后显示。
+      </div>
+
+      <div class="tabs" id="tabs">
+        <button class="tab active" data-tab="overview">总览</button>
+        <button class="tab" data-tab="board">行业看板</button>
+        <button class="tab" data-tab="rotation">强弱轮动</button>
+        <button class="tab" data-tab="detail">行业详情</button>
+        <button class="tab" data-tab="future">待接入模块</button>
+      </div>
+
+      <section class="section active" id="section-overview">
+        <div id="overview-content"></div>
       </section>
 
-    </section>
-
-    <section class="market-view" data-view="china" hidden>
-
-      <div class="empty-state other-market-empty">
-
-        <div class="empty-state-inner">
-
-          <div class="empty-icon">—</div>
-
-          <h2>暂无已接入数据</h2>
-
-          <p>中国A股数据将在后续接入。</p>
-
+      <section class="section" id="section-board">
+        <div class="toolbar">
+          <div class="searchbar">
+            <input id="industry-search" type="text" placeholder="搜索日本行业 / 日文 / 中文名" />
+          </div>
+          <div class="right">
+            <span class="legend">红色<span class="up">上涨</span> / 绿色<span class="down">下跌</span> / 灰色缺失</span>
+          </div>
         </div>
+        <div id="board-content"></div>
+      </section>
 
+      <section class="section" id="section-rotation">
+        <div id="rotation-content"></div>
+      </section>
+
+      <section class="section" id="section-detail">
+        <div id="detail-content"></div>
+      </section>
+
+      <section class="section" id="section-future">
+        <div id="future-content"></div>
+      </section>
+
+      <div class="footer-note">
+        说明：当前行业层数据来自 <strong>nikkei225jp.com</strong> 的日本行业指数页面抓取；<br>
+        “资金偏向”与“轮动状态”当前为行业强弱的代理判断，不是逐笔真实资金流。<br>
+        “点击行业查看股票排行”功能已在页面框架中保留，待你接入真实个股数据源后自动显示。
       </div>
+    </main>
+  </div>
 
-    </section>
-
-    <section class="market-view" data-view="usa" hidden>
-
-      <div class="empty-state other-market-empty">
-
-        <div class="empty-state-inner">
-
-          <div class="empty-icon">—</div>
-
-          <h2>暂无已接入数据</h2>
-
-          <p>美国市场数据将在后续接入。</p>
-
-        </div>
-
-      </div>
-
-    </section>
-
-  </main>
-
-
-  <script type="application/json" id="embedded-data">
-{"summary":[{"日期":"2026-09-18","时间":"15:30:00","市场":"日本","分类体系":"东证33","一级行业":"水産・農林業","行业指数名称":"水産・農林業","行业指数值":730.09,"行业指数涨跌幅(%)":-13.13,"33行业当日平均涨跌幅(%)":-14.597,"当日相对强度(%)":1.467,"5日收益率(%)":0.7604,"20日收益率(%)":-5.2606,"5日相对强度(%)":-0.5956,"20日相对强度(%)":-5.0506,"当日强弱排名":14,"5日排名":21,"排名变化":7,"连续强势天数":2,"连续弱势天数":0,"轮动状态":"转强","数据状态":"来源：nikkei225jp.com"},{"日期":"2026-09-18","时间":"15:30:00","市场":"日本","分类体系":"东证33","一级行业":"鉱業","行业指数名称":"鉱業","行业指数值":1154.28,"行业指数涨跌幅(%)":-1.77,"33行业当日平均涨跌幅(%)":-14.597,"当日相对强度(%)":12.827,"5日收益率(%)":-0.1497,"20日收益率(%)":-0.8955,"5日相对强度(%)":-1.5057,"20日相对强度(%)":-0.6855,"当日强弱排名":10,"5日排名":27,"排名变化":17,"连续强势天数":1,"连续弱势天数":0,"轮动状态":"转强","数据状态":"来源：nikkei225jp.com"},{"日期":"2026-09-18","时间":"15:30:00","市场":"日本","分类体系":"东证33","一级行业":"建設業","行业指数名称":"建設業","行业指数值":2610.8,"行业指数涨跌幅(%)":-25.83,"33行业当日平均涨跌幅(%)":-14.597,"当日相对强度(%)":-11.233,"5日收益率(%)":2.178,"20日收益率(%)":2.0039,"5日相对强度(%)":0.8219,"20日相对强度(%)":2.214,"当日强弱排名":19,"5日排名":10,"排名变化":-9,"连续强势天数":0,"连续弱势天数":1,"轮动状态":"转弱","数据状态":"来源：nikkei225jp.com"},{"日期":"2026-09-18","时间":"15:30:00","市场":"日本","分类体系":"东证33","一级行业":"食料品","行业指数名称":"食料品","行业指数值":2855.0,"行业指数涨跌幅(%)":-37.16,"33行业当日平均涨跌幅(%)":-14.597,"当日相对强度(%)":-22.563,"5日收益率(%)":0.8877,"20日收益率(%)":-3.7129,"5日相对强度(%)":-0.4683,"20日相对强度(%)":-3.5028,"当日强弱排名":26,"5日排名":19,"排名变化":-7,"连续强势天数":0,"连续弱势天数":1,"轮动状态":"弱势延续","数据状态":"来源：nikkei225jp.com"},{"日期":"2026-09-18","时间":"15:30:00","市场":"日本","分类体系":"东证33","一级行业":"繊維製品","行业指数名称":"繊維製品","行业指数值":982.45,"行业指数涨跌幅(%)":-13.19,"33行业当日平均涨跌幅(%)":-14.597,"当日相对强度(%)":1.407,"5日收益率(%)":1.7988,"20日收益率(%)":-2.9516,"5日相对强度(%)":0.4428,"20日相对强度(%)":-2.7416,"当日强弱排名":15,"5日排名":15,"排名变化":0,"连续强势天数":1,"连续弱势天数":0,"轮动状态":"强势延续","数据状态":"来源：nikkei225jp.com"},{"日期":"2026-09-18","时间":"15:30:00","市场":"日本","分类体系":"东证33","一级行业":"パルプ・紙","行业指数名称":"パルプ・紙","行业指数值":690.79,"行业指数涨跌幅(%)":-6.65,"33行业当日平均涨跌幅(%)":-14.597,"当日相对强度(%)":7.947,"5日收益率(%)":2.1033,"20日收益率(%)":-0.5457,"5日相对强度(%)":0.7473,"20日相对强度(%)":-0.3356,"当日强弱排名":12,"5日排名":11,"排名变化":-1,"连续强势天数":2,"连续弱势天数":0,"轮动状态":"强势延续","数据状态":"来源：nikkei225jp.com"},{"日期":"2026-09-18","时间":"15:30:00","市场":"日本","分类体系":"东证33","一级行业":"化学","行业指数名称":"化学","行业指数值":3035.26,"行业指数涨跌幅(%)":-0.56,"33行业当日平均涨跌幅(%)":-14.597,"当日相对强度(%)":14.037,"5日收益率(%)":2.2982,"20日收益率(%)":-2.2999,"5日相对强度(%)":0.9422,"20日相对强度(%)":-2.0898,"当日强弱排名":8,"5日排名":8,"排名变化":0,"连续强势天数":1,"连续弱势天数":0,"轮动状态":"强势延续","数据状态":"来源：nikkei225jp.com"},{"日期":"2026-09-18","时间":"15:30:00","市场":"日本","分类体系":"东证33","一级行业":"医薬品","行业指数名称":"医薬品","行业指数值":4057.91,"行业指数涨跌幅(%)":2.9,"33行业当日平均涨跌幅(%)":-14.597,"当日相对强度(%)":17.497,"5日收益率(%)":4.0973,"20日收益率(%)":-0.5867,"5日相对强度(%)":2.7413,"20日相对强度(%)":-0.3767,"当日强弱排名":6,"5日排名":2,"排名变化":-4,"连续强势天数":2,"连续弱势天数":0,"轮动状态":"强势延续","数据状态":"来源：nikkei225jp.com"},{"日期":"2026-09-18","时间":"15:30:00","市场":"日本","分类体系":"东证33","一级行业":"石油・石炭製品","行业指数名称":"石油・石炭製品","行业指数值":3154.09,"行业指数涨跌幅(%)":-60.57,"33行业当日平均涨跌幅(%)":-14.597,"当日相对强度(%)":-45.973,"5日收益率(%)":-0.4884,"20日收益率(%)":9.5505,"5日相对强度(%)":-1.8444,"20日相对强度(%)":9.7605,"当日强弱排名":29,"5日排名":30,"排名变化":1,"连续强势天数":0,"连续弱势天数":2,"轮动状态":"弱势延续","数据状态":"来源：nikkei225jp.com"},{"日期":"2026-09-18","时间":"15:30:00","市场":"日本","分类体系":"东证33","一级行业":"ゴム製品","行业指数名称":"ゴム製品","行业指数值":5841.99,"行业指数涨跌幅(%)":-74.66,"33行业当日平均涨跌幅(%)":-14.597,"当日相对强度(%)":-60.063,"5日收益率(%)":-0.332,"20日收益率(%)":-8.1904,"5日相对强度(%)":-1.688,"20日相对强度(%)":-7.9804,"当日强弱排名":32,"5日排名":28,"排名变化":-4,"连续强势天数":0,"连续弱势天数":1,"轮动状态":"弱势延续","数据状态":"来源：nikkei225jp.com"},{"日期":"2026-09-18","时间":"15:30:00","市场":"日本","分类体系":"东证33","一级行业":"ガラス・土石製品","行业指数名称":"ガラス・土石製品","行业指数值":2189.07,"行业指数涨跌幅(%)":13.07,"33行业当日平均涨跌幅(%)":-14.597,"当日相对强度(%)":27.667,"5日收益率(%)":2.7781,"20日收益率(%)":-3.4269,"5日相对强度(%)":1.4221,"20日相对强度(%)":-3.2169,"当日强弱排名":4,"5日排名":5,"排名变化":1,"连续强势天数":1,"连续弱势天数":0,"轮动状态":"强势延续","数据状态":"来源：nikkei225jp.com"},{"日期":"2026-09-18","时间":"15:30:00","市场":"日本","分类体系":"东证33","一级行业":"鉄鋼","行业指数名称":"鉄鋼","行业指数值":844.73,"行业指数涨跌幅(%)":-7.34,"33行业当日平均涨跌幅(%)":-14.597,"当日相对强度(%)":7.257,"5日收益率(%)":2.0772,"20日收益率(%)":4.0218,"5日相对强度(%)":0.7212,"20日相对强度(%)":4.2319,"当日强弱排名":13,"5日排名":12,"排名变化":-1,"连续强势天数":3,"连续弱势天数":0,"轮动状态":"强势延续","数据状态":"来源：nikkei225jp.com"},{"日期":"2026-09-18","时间":"15:30:00","市场":"日本","分类体系":"东证33","一级行业":"非鉄金属","行业指数名称":"非鉄金属","行业指数值":5542.61,"行业指数涨跌幅(%)":123.97,"33行业当日平均涨跌幅(%)":-14.597,"当日相对强度(%)":138.567,"5日收益率(%)":-0.4469,"20日收益率(%)":-5.5785,"5日相对强度(%)":-1.8029,"20日相对强度(%)":-5.3684,"当日强弱排名":2,"5日排名":29,"排名变化":27,"连续强势天数":1,"连续弱势天数":0,"轮动状态":"转强","数据状态":"来源：nikkei225jp.com"},{"日期":"2026-09-18","时间":"15:30:00","市场":"日本","分类体系":"东证33","一级行业":"金属製品","行业指数名称":"金属製品","行业指数值":1945.89,"行业指数涨跌幅(%)":12.41,"33行业当日平均涨跌幅(%)":-14.597,"当日相对强度(%)":27.007,"5日收益率(%)":1.9762,"20日收益率(%)":-3.92,"5日相对强度(%)":0.6202,"20日相对强度(%)":-3.7099,"当日强弱排名":5,"5日排名":14,"排名变化":9,"连续强势天数":1,"连续弱势天数":0,"轮动状态":"强势延续","数据状态":"来源：nikkei225jp.com"},{"日期":"2026-09-18","时间":"15:30:00","市场":"日本","分类体系":"东证33","一级行业":"機械","行业指数名称":"機械","行业指数值":4686.77,"行业指数涨跌幅(%)":17.14,"33行业当日平均涨跌幅(%)":-14.597,"当日相对强度(%)":31.737,"5日收益率(%)":2.0525,"20日收益率(%)":-2.7292,"5日相对强度(%)":0.6965,"20日相对强度(%)":-2.5191,"当日强弱排名":3,"5日排名":13,"排名变化":10,"连续强势天数":1,"连续弱势天数":0,"轮动状态":"强势延续","数据状态":"来源：nikkei225jp.com"},{"日期":"2026-09-18","时间":"15:30:00","市场":"日本","分类体系":"东证33","一级行业":"電気機器","行业指数名称":"電気機器","行业指数值":8286.04,"行业指数涨跌幅(%)":160.67,"33行业当日平均涨跌幅(%)":-14.597,"当日相对强度(%)":175.267,"5日收益率(%)":3.3209,"20日收益率(%)":-0.8543,"5日相对强度(%)":1.9649,"20日相对强度(%)":-0.6443,"当日强弱排名":1,"5日排名":3,"排名变化":2,"连续强势天数":1,"连续弱势天数":0,"轮动状态":"强势延续","数据状态":"来源：nikkei225jp.com"},{"日期":"2026-09-18","时间":"15:30:00","市场":"日本","分类体系":"东证33","一级行业":"輸送用機器","行业指数名称":"輸送用機器","行业指数值":4857.34,"行业指数涨跌幅(%)":-32.2,"33行业当日平均涨跌幅(%)":-14.597,"当日相对强度(%)":-17.603,"5日收益率(%)":0.514,"20日收益率(%)":-3.5157,"5日相对强度(%)":-0.842,"20日相对强度(%)":-3.3056,"当日强弱排名":22,"5日排名":23,"排名变化":1,"连续强势天数":0,"连续弱势天数":1,"轮动状态":"弱势延续","数据状态":"来源：nikkei225jp.com"},{"日期":"2026-09-18","时间":"15:30:00","市场":"日本","分类体系":"东证33","一级行业":"精密機器","行业指数名称":"精密機器","行业指数值":13358.95,"行业指数涨跌幅(%)":-34.05,"33行业当日平均涨跌幅(%)":-14.597,"当日相对强度(%)":-19.453,"5日收益率(%)":1.2651,"20日收益率(%)":-9.0169,"5日相对强度(%)":-0.0909,"20日相对强度(%)":-8.8068,"当日强弱排名":24,"5日排名":17,"排名变化":-7,"连续强势天数":0,"连续弱势天数":1,"轮动状态":"弱势延续","数据状态":"来源：nikkei225jp.com"},{"日期":"2026-09-18","时间":"15:30:00","市场":"日本","分类体系":"东证33","一级行业":"その他製品","行业指数名称":"その他製品","行业指数值":6320.41,"行业指数涨跌幅(%)":-67.47,"33行业当日平均涨跌幅(%)":-14.597,"当日相对强度(%)":-52.873,"5日收益率(%)":2.6171,"20日收益率(%)":-3.8493,"5日相对强度(%)":1.261,"20日相对强度(%)":-3.6392,"当日强弱排名":30,"5日排名":6,"排名变化":-24,"连续强势天数":0,"连续弱势天数":1,"轮动状态":"转弱","数据状态":"来源：nikkei225jp.com"},{"日期":"2026-09-18","时间":"15:30:00","市场":"日本","分类体系":"东证33","一级行业":"電気・ガス業","行业指数名称":"電気・ガス業","行业指数值":756.08,"行业指数涨跌幅(%)":-17.33,"33行业当日平均涨跌幅(%)":-14.597,"当日相对强度(%)":-2.733,"5日收益率(%)":-0.623,"20日收益率(%)":6.2865,"5日相对强度(%)":-1.979,"20日相对强度(%)":6.4966,"当日强弱排名":17,"5日排名":31,"排名变化":14,"连续强势天数":0,"连续弱势天数":1,"轮动状态":"弱势延续","数据状态":"来源：nikkei225jp.com"},{"日期":"2026-09-18","时间":"15:30:00","市场":"日本","分类体系":"东证33","一级行业":"陸運業","行业指数名称":"陸運業","行业指数值":2304.12,"行业指数涨跌幅(%)":-32.18,"33行业当日平均涨跌幅(%)":-14.597,"当日相对强度(%)":-17.583,"5日收益率(%)":0.7151,"20日收益率(%)":-0.6442,"5日相对强度(%)":-0.6409,"20日相对强度(%)":-0.4342,"当日强弱排名":21,"5日排名":22,"排名变化":1,"连续强势天数":0,"连续弱势天数":1,"轮动状态":"弱势延续","数据状态":"来源：nikkei225jp.com"},{"日期":"2026-09-18","时间":"15:30:00","市场":"日本","分类体系":"东证33","一级行业":"海運業","行业指数名称":"海運業","行业指数值":2726.37,"行业指数涨跌幅(%)":-47.58,"33行业当日平均涨跌幅(%)":-14.597,"当日相对强度(%)":-32.983,"5日收益率(%)":2.9611,"20日收益率(%)":2.5815,"5日相对强度(%)":1.6051,"20日相对强度(%)":2.7915,"当日强弱排名":27,"5日排名":4,"排名变化":-23,"连续强势天数":0,"连续弱势天数":1,"轮动状态":"转弱","数据状态":"来源：nikkei225jp.com"},{"日期":"2026-09-18","时间":"15:30:00","市场":"日本","分类体系":"东证33","一级行业":"空運業","行业指数名称":"空運業","行业指数值":244.59,"行业指数涨跌幅(%)":-1.11,"33行业当日平均涨跌幅(%)":-14.597,"当日相对强度(%)":13.487,"5日收益率(%)":2.4203,"20日收益率(%)":-0.098,"5日相对强度(%)":1.0643,"20日相对强度(%)":0.112,"当日强弱排名":9,"5日排名":7,"排名变化":-2,"连续强势天数":2,"连续弱势天数":0,"轮动状态":"强势延续","数据状态":"来源：nikkei225jp.com"},{"日期":"2026-09-18","时间":"15:30:00","市场":"日本","分类体系":"东证33","一级行业":"倉庫・運輸関連業","行业指数名称":"倉庫・運輸関連業","行业指数值":4836.99,"行业指数涨跌幅(%)":-68.97,"33行业当日平均涨跌幅(%)":-14.597,"当日相对强度(%)":-54.373,"5日收益率(%)":1.3997,"20日收益率(%)":1.1906,"5日相对强度(%)":0.0437,"20日相对强度(%)":1.4006,"当日强弱排名":31,"5日排名":16,"排名变化":-15,"连续强势天数":0,"连续弱势天数":2,"轮动状态":"转弱","数据状态":"来源：nikkei225jp.com"},{"日期":"2026-09-18","时间":"15:30:00","市场":"日本","分类体系":"东证33","一级行业":"情報・通信業","行业指数名称":"情報・通信業","行业指数值":8692.64,"行业指数涨跌幅(%)":-33.58,"33行业当日平均涨跌幅(%)":-14.597,"当日相对强度(%)":-18.983,"5日收益率(%)":0.213,"20日收益率(%)":8.2771,"5日相对强度(%)":-1.143,"20日相对强度(%)":8.4872,"当日强弱排名":23,"5日排名":25,"排名变化":2,"连续强势天数":0,"连续弱势天数":1,"轮动状态":"弱势延续","数据状态":"来源：nikkei225jp.com"},{"日期":"2026-09-18","时间":"15:30:00","市场":"日本","分类体系":"东证33","一级行业":"卸売業","行业指数名称":"卸売業","行业指数值":6248.7,"行业指数涨跌幅(%)":-85.27,"33行业当日平均涨跌幅(%)":-14.597,"当日相对强度(%)":-70.673,"5日收益率(%)":0.3511,"20日收益率(%)":5.0211,"5日相对强度(%)":-1.0049,"20日相对强度(%)":5.2311,"当日强弱排名":33,"5日排名":24,"排名变化":-9,"连续强势天数":0,"连续弱势天数":1,"轮动状态":"弱势延续","数据状态":"来源：nikkei225jp.com"},{"日期":"2026-09-18","时间":"15:30:00","市场":"日本","分类体系":"东证33","一级行业":"小売業","行业指数名称":"小売業","行业指数值":2237.21,"行业指数涨跌幅(%)":-18.12,"33行业当日平均涨跌幅(%)":-14.597,"当日相对强度(%)":-3.523,"5日收益率(%)":0.0492,"20日收益率(%)":-5.1676,"5日相对强度(%)":-1.3068,"20日相对强度(%)":-4.9576,"当日强弱排名":18,"5日排名":26,"排名变化":8,"连续强势天数":0,"连续弱势天数":3,"轮动状态":"弱势延续","数据状态":"来源：nikkei225jp.com"},{"日期":"2026-09-18","时间":"15:30:00","市场":"日本","分类体系":"东证33","一级行业":"銀行業","行业指数名称":"銀行業","行业指数值":759.27,"行业指数涨跌幅(%)":-4.09,"33行业当日平均涨跌幅(%)":-14.597,"当日相对强度(%)":10.507,"5日收益率(%)":-0.727,"20日收益率(%)":3.8432,"5日相对强度(%)":-2.083,"20日相对强度(%)":4.0532,"当日强弱排名":11,"5日排名":32,"排名变化":21,"连续强势天数":1,"连续弱势天数":0,"轮动状态":"转强","数据状态":"来源：nikkei225jp.com"},{"日期":"2026-09-18","时间":"15:30:00","市场":"日本","分类体系":"东证33","一级行业":"証券業","行业指数名称":"証券業","行业指数值":998.27,"行业指数涨跌幅(%)":0.23,"33行业当日平均涨跌幅(%)":-14.597,"当日相对强度(%)":14.827,"5日收益率(%)":-2.0516,"20日收益率(%)":2.9197,"5日相对强度(%)":-3.4077,"20日相对强度(%)":3.1298,"当日强弱排名":7,"5日排名":33,"排名变化":26,"连续强势天数":1,"连续弱势天数":0,"轮动状态":"转强","数据状态":"来源：nikkei225jp.com"},{"日期":"2026-09-18","时间":"15:30:00","市场":"日本","分类体系":"东证33","一级行业":"保険業","行业指数名称":"保険業","行业指数值":4182.15,"行业指数涨跌幅(%)":-48.2,"33行业当日平均涨跌幅(%)":-14.597,"当日相对强度(%)":-33.603,"5日收益率(%)":2.2123,"20日收益率(%)":7.3375,"5日相对强度(%)":0.8563,"20日相对强度(%)":7.5476,"当日强弱排名":28,"5日排名":9,"排名变化":-19,"连续强势天数":0,"连续弱势天数":1,"轮动状态":"转弱","数据状态":"来源：nikkei225jp.com"},{"日期":"2026-09-18","时间":"15:30:00","市场":"日本","分类体系":"东证33","一级行业":"その他金融業","行业指数名称":"その他金融業","行业指数值":1575.51,"行业指数涨跌幅(%)":-16.79,"33行业当日平均涨跌幅(%)":-14.597,"当日相对强度(%)":-2.193,"5日收益率(%)":0.9651,"20日收益率(%)":0.1411,"5日相对强度(%)":-0.3909,"20日相对强度(%)":0.3512,"当日强弱排名":16,"5日排名":18,"排名变化":2,"连续强势天数":0,"连续弱势天数":1,"轮动状态":"弱势延续","数据状态":"来源：nikkei225jp.com"},{"日期":"2026-09-18","时间":"15:30:00","市场":"日本","分类体系":"东证33","一级行业":"不動産業","行业指数名称":"不動産業","行业指数值":2424.99,"行业指数涨跌幅(%)":-36.2,"33行业当日平均涨跌幅(%)":-14.597,"当日相对强度(%)":-21.603,"5日收益率(%)":0.8065,"20日收益率(%)":-2.0463,"5日相对强度(%)":-0.5496,"20日相对强度(%)":-1.8363,"当日强弱排名":25,"5日排名":20,"排名变化":-5,"连续强势天数":0,"连续弱势天数":1,"轮动状态":"弱势延续","数据状态":"来源：nikkei225jp.com"},{"日期":"2026-09-18","时间":"15:30:00","市场":"日本","分类体系":"东证33","一级行业":"サービス業","行业指数名称":"サービス業","行业指数值":4562.29,"行业指数涨跌幅(%)":-28.09,"33行业当日平均涨跌幅(%)":-14.597,"当日相对强度(%)":-13.493,"5日收益率(%)":6.7485,"20日收益率(%)":5.1839,"5日相对强度(%)":5.3924,"20日相对强度(%)":5.394,"当日强弱排名":20,"5日排名":1,"排名变化":-19,"连续强势天数":0,"连续弱势天数":1,"轮动状态":"转弱","数据状态":"来源：nikkei225jp.com"}],"rep":[],"act":[],"detail":[],"history":[{"日期":"2025-09-18","时间":"15:30:00","行业指数值":{"水産・農林業":662.5,"鉱業":767.79,"建設業":2313.38,"食料品":2414.76,"繊維製品":824.9,"パルプ・紙":598.2,"化学":2535.51,"医薬品":3572.9,"石油・石炭製品":2086.09,"ゴム製品":5393.27,"ガラス・土石製品":1579.24,"鉄鋼":762.43,"非鉄金属":2594.99,"金属製品":1650.3,"機械":3898.08,"電気機器":5497.8,"輸送用機器":4701.78,"精密機器":12073.82,"その他製品":7578.73,"電気・ガス業":593.08,"陸運業":2351.62,"海運業":1884.26,"空運業":244.89,"倉庫・運輸関連業":4328.24,"情報・通信業":7790.3,"卸売業":4508.28,"小売業":2162.94,"銀行業":445.89,"証券業":751.97,"保険業":3009.45,"その他金融業":1159.82,"不動産業":2406.3,"サービス業":3261.31},"当日收益率(%)":null},{"日期":"2026-07-17","时间":"15:30:00","行业指数值":{"水産・農林業":751.73,"鉱業":997.69,"建設業":2646.32,"食料品":2824.7,"繊維製品":933.85,"パルプ・紙":667.99,"化学":3180.92,"医薬品":3912.95,"石油・石炭製品":2654.46,"ゴム製品":5947.47,"ガラス・土石製品":2375.11,"鉄鋼":755.68,"非鉄金属":5202.69,"金属製品":2092.32,"機械":4806.92,"電気機器":8095.75,"輸送用機器":4674.32,"精密機器":14002.81,"その他製品":5887.67,"電気・ガス業":665.07,"陸運業":2316.14,"海運業":2096.74,"空運業":240.63,"倉庫・運輸関連業":4883.62,"情報・通信業":7697.43,"卸売業":5543.87,"小売業":2376.51,"銀行業":711.46,"証券業":927.03,"保険業":3861.42,"その他金融業":1563.88,"不動産業":2570.0,"サービス業":3873.29},"当日收益率(%)":{"水産・農林業":13.4687,"鉱業":29.9431,"建設業":14.3919,"食料品":16.9764,"繊維製品":13.2077,"パルプ・紙":11.6667,"化学":25.4548,"医薬品":9.5175,"石油・石炭製品":27.2457,"ゴム製品":10.2758,"ガラス・土石製品":50.3958,"鉄鋼":-0.8853,"非鉄金属":100.4898,"金属製品":26.7842,"機械":23.3151,"電気機器":47.2544,"輸送用機器":-0.584,"精密機器":15.9766,"その他製品":-22.3132,"電気・ガス業":12.1383,"陸運業":-1.5087,"海運業":11.2766,"空運業":-1.7396,"倉庫・運輸関連業":12.8315,"情報・通信業":-1.1921,"卸売業":22.9708,"小売業":9.8741,"銀行業":59.5595,"証券業":23.2802,"保険業":28.3098,"その他金融業":34.8382,"不動産業":6.803,"サービス業":18.7649}},{"日期":"2026-07-21","时间":"15:30:00","行业指数值":{"水産・農林業":751.57,"鉱業":1048.2,"建設業":2682.35,"食料品":2835.66,"繊維製品":947.99,"パルプ・紙":684.36,"化学":3223.79,"医薬品":3951.04,"石油・石炭製品":2771.43,"ゴム製品":6053.11,"ガラス・土石製品":2429.29,"鉄鋼":771.7,"非鉄金属":5428.11,"金属製品":2105.07,"機械":4938.05,"電気機器":8357.35,"輸送用機器":4740.22,"精密機器":14066.88,"その他製品":5805.13,"電気・ガス業":675.85,"陸運業":2333.32,"海運業":2115.88,"空運業":241.73,"倉庫・運輸関連業":4959.69,"情報・通信業":7851.27,"卸売業":5734.38,"小売業":2384.92,"銀行業":739.19,"証券業":962.14,"保険業":4042.54,"その他金融業":1630.53,"不動産業":2626.86,"サービス業":3902.1},"当日收益率(%)":{"水産・農林業":-0.0213,"鉱業":5.0627,"建設業":1.3615,"食料品":0.388,"繊維製品":1.5142,"パルプ・紙":2.4506,"化学":1.3477,"医薬品":0.9734,"石油・石炭製品":4.4065,"ゴム製品":1.7762,"ガラス・土石製品":2.2812,"鉄鋼":2.1199,"非鉄金属":4.3328,"金属製品":0.6094,"機械":2.7279,"電気機器":3.2313,"輸送用機器":1.4098,"精密機器":0.4576,"その他製品":-1.4019,"電気・ガス業":1.6209,"陸運業":0.7418,"海運業":0.9128,"空運業":0.4571,"倉庫・運輸関連業":1.5577,"情報・通信業":1.9986,"卸売業":3.4364,"小売業":0.3539,"銀行業":3.8976,"証券業":3.7874,"保険業":4.6905,"その他金融業":4.2618,"不動産業":2.2125,"サービス業":0.7438}},{"日期":"2026-07-22","时间":"15:30:00","行业指数值":{"水産・農林業":752.07,"鉱業":1058.51,"建設業":2682.57,"食料品":2830.52,"繊維製品":951.58,"パルプ・紙":686.06,"化学":3219.15,"医薬品":3920.56,"石油・石炭製品":2811.67,"ゴム製品":6007.14,"ガラス・土石製品":2463.65,"鉄鋼":769.88,"非鉄金属":5604.38,"金属製品":2087.41,"機械":4976.61,"電気機器":8426.9,"輸送用機器":4745.39,"精密機器":13879.98,"その他製品":5769.08,"電気・ガス業":677.0,"陸運業":2311.84,"海運業":2144.87,"空運業":238.23,"倉庫・運輸関連業":4909.13,"情報・通信業":7792.17,"卸売業":5839.83,"小売業":2350.89,"銀行業":754.92,"証券業":968.57,"保険業":4079.51,"その他金融業":1636.34,"不動産業":2601.55,"サービス業":3801.36},"当日收益率(%)":{"水産・農林業":0.0665,"鉱業":0.9836,"建設業":0.0082,"食料品":-0.1813,"繊維製品":0.3787,"パルプ・紙":0.2484,"化学":-0.1439,"医薬品":-0.7714,"石油・石炭製品":1.452,"ゴム製品":-0.7594,"ガラス・土石製品":1.4144,"鉄鋼":-0.2358,"非鉄金属":3.2474,"金属製品":-0.8389,"機械":0.7809,"電気機器":0.8322,"輸送用機器":0.1091,"精密機器":-1.3287,"その他製品":-0.621,"電気・ガス業":0.1702,"陸運業":-0.9206,"海運業":1.3701,"空運業":-1.4479,"倉庫・運輸関連業":-1.0194,"情報・通信業":-0.7527,"卸売業":1.8389,"小売業":-1.4269,"銀行業":2.128,"証券業":0.6683,"保険業":0.9145,"その他金融業":0.3563,"不動産業":-0.9635,"サービス業":-2.5817}},{"日期":"2026-07-23","时间":"15:30:00","行业指数值":{"水産・農林業":748.97,"鉱業":1081.71,"建設業":2689.15,"食料品":2798.23,"繊維製品":952.58,"パルプ・紙":695.17,"化学":3221.21,"医薬品":3892.94,"石油・石炭製品":2842.43,"ゴム製品":6006.35,"ガラス・土石製品":2465.8,"鉄鋼":777.81,"非鉄金属":5698.58,"金属製品":2087.05,"機械":5041.87,"電気機器":8475.04,"輸送用機器":4760.88,"精密機器":13785.61,"その他製品":5814.77,"電気・ガス業":679.01,"陸運業":2297.13,"海運業":2151.12,"空運業":237.1,"倉庫・運輸関連業":4901.41,"情報・通信業":7834.29,"卸売業":5894.8,"小売業":2324.81,"銀行業":768.57,"証券業":981.75,"保険業":4091.98,"その他金融業":1644.26,"不動産業":2561.25,"サービス業":3796.23},"当日收益率(%)":{"水産・農林業":-0.4122,"鉱業":2.1918,"建設業":0.2453,"食料品":-1.1408,"繊維製品":0.1051,"パルプ・紙":1.3279,"化学":0.064,"医薬品":-0.7045,"石油・石炭製品":1.094,"ゴム製品":-0.0132,"ガラス・土石製品":0.0873,"鉄鋼":1.03,"非鉄金属":1.6808,"金属製品":-0.0172,"機械":1.3113,"電気機器":0.5713,"輸送用機器":0.3264,"精密機器":-0.6799,"その他製品":0.792,"電気・ガス業":0.2969,"陸運業":-0.6363,"海運業":0.2914,"空運業":-0.4743,"倉庫・運輸関連業":-0.1573,"情報・通信業":0.5405,"卸売業":0.9413,"小売業":-1.1094,"銀行業":1.8081,"証券業":1.3608,"保険業":0.3057,"その他金融業":0.484,"不動産業":-1.5491,"サービス業":-0.135}},{"日期":"2026-07-24","时间":"15:30:00","行业指数值":{"水産・農林業":750.67,"鉱業":1098.05,"建設業":2682.91,"食料品":2819.28,"繊維製品":940.57,"パルプ・紙":684.72,"化学":3152.17,"医薬品":3961.53,"石油・石炭製品":2820.4,"ゴム製品":5898.79,"ガラス・土石製品":2417.85,"鉄鋼":782.5,"非鉄金属":5516.36,"金属製品":2057.38,"機械":4951.25,"電気機器":8240.41,"輸送用機器":4677.05,"精密機器":13685.43,"その他製品":5776.53,"電気・ガス業":683.08,"陸運業":2323.55,"海運業":2179.23,"空運業":232.95,"倉庫・運輸関連業":4924.24,"情報・通信業":7709.09,"卸売業":5867.26,"小売業":2332.43,"銀行業":767.85,"証券業":967.93,"保険業":4146.34,"その他金融業":1627.27,"不動産業":2548.78,"サービス業":3775.96},"当日收益率(%)":{"水産・農林業":0.227,"鉱業":1.5106,"建設業":-0.232,"食料品":0.7523,"繊維製品":-1.2608,"パルプ・紙":-1.5032,"化学":-2.1433,"医薬品":1.7619,"石油・石炭製品":-0.775,"ゴム製品":-1.7908,"ガラス・土石製品":-1.9446,"鉄鋼":0.603,"非鉄金属":-3.1976,"金属製品":-1.4216,"機械":-1.7973,"電気機器":-2.7685,"輸送用機器":-1.7608,"精密機器":-0.7267,"その他製品":-0.6576,"電気・ガス業":0.5994,"陸運業":1.1501,"海運業":1.3068,"空運業":-1.7503,"倉庫・運輸関連業":0.4658,"情報・通信業":-1.5981,"卸売業":-0.4672,"小売業":0.3278,"銀行業":-0.0937,"証券業":-1.4077,"保険業":1.3285,"その他金融業":-1.0333,"不動産業":-0.4869,"サービス業":-0.534}},{"日期":"2026-07-27","时间":"15:30:00","行业指数值":{"水産・農林業":762.65,"鉱業":1070.14,"建設業":2740.42,"食料品":2855.25,"繊維製品":962.22,"パルプ・紙":701.36,"化学":3141.61,"医薬品":3977.6,"石油・石炭製品":2818.16,"ゴム製品":6110.01,"ガラス・土石製品":2432.35,"鉄鋼":806.16,"非鉄金属":5361.59,"金属製品":2115.93,"機械":5010.81,"電気機器":8343.85,"輸送用機器":4805.81,"精密機器":13964.43,"その他製品":6035.69,"電気・ガス業":694.73,"陸運業":2383.8,"海運業":2217.0,"空運業":244.11,"倉庫・運輸関連業":4991.41,"情報・通信業":7809.33,"卸売業":5904.22,"小売業":2381.97,"銀行業":774.94,"証券業":975.68,"保険業":4232.22,"その他金融業":1661.99,"不動産業":2617.21,"サービス業":3903.54},"当日收益率(%)":{"水産・農林業":1.5959,"鉱業":-2.5418,"建設業":2.1436,"食料品":1.2759,"繊維製品":2.3018,"パルプ・紙":2.4302,"化学":-0.335,"医薬品":0.4057,"石油・石炭製品":-0.0794,"ゴム製品":3.5807,"ガラス・土石製品":0.5997,"鉄鋼":3.0236,"非鉄金属":-2.8057,"金属製品":2.8459,"機械":1.2029,"電気機器":1.2553,"輸送用機器":2.753,"精密機器":2.0387,"その他製品":4.4864,"電気・ガス業":1.7055,"陸運業":2.593,"海運業":1.7332,"空運業":4.7907,"倉庫・運輸関連業":1.3641,"情報・通信業":1.3003,"卸売業":0.6299,"小売業":2.124,"銀行業":0.9234,"証券業":0.8007,"保険業":2.0712,"その他金融業":2.1336,"不動産業":2.6848,"サービス業":3.3787}},{"日期":"2026-07-28","时间":"15:30:00","行业指数值":{"水産・農林業":767.01,"鉱業":1046.19,"建設業":2697.01,"食料品":2878.67,"繊維製品":942.37,"パルプ・紙":698.94,"化学":3040.94,"医薬品":3999.32,"石油・石炭製品":2772.18,"ゴム製品":6133.34,"ガラス・土石製品":2306.03,"鉄鋼":811.08,"非鉄金属":4992.38,"金属製品":2003.74,"機械":4767.73,"電気機器":7829.8,"輸送用機器":4858.13,"精密機器":13542.21,"その他製品":6052.8,"電気・ガス業":684.36,"陸運業":2409.96,"海運業":2196.23,"空運業":248.73,"倉庫・運輸関連業":4985.53,"情報・通信業":7781.51,"卸売業":5831.12,"小売業":2433.57,"銀行業":745.18,"証券業":955.17,"保険業":4197.05,"その他金融業":1616.78,"不動産業":2608.96,"サービス業":3922.67},"当日收益率(%)":{"水産・農林業":0.5717,"鉱業":-2.238,"建設業":-1.5841,"食料品":0.8202,"繊維製品":-2.0629,"パルプ・紙":-0.345,"化学":-3.2044,"医薬品":0.5461,"石油・石炭製品":-1.6316,"ゴム製品":0.3818,"ガラス・土石製品":-5.1933,"鉄鋼":0.6103,"非鉄金属":-6.8862,"金属製品":-5.3022,"機械":-4.8511,"電気機器":-6.1608,"輸送用機器":1.0887,"精密機器":-3.0235,"その他製品":0.2835,"電気・ガス業":-1.4927,"陸運業":1.0974,"海運業":-0.9369,"空運業":1.8926,"倉庫・運輸関連業":-0.1178,"情報・通信業":-0.3562,"卸売業":-1.2381,"小売業":2.1663,"銀行業":-3.8403,"証券業":-2.1021,"保険業":-0.831,"その他金融業":-2.7202,"不動産業":-0.3152,"サービス業":0.4901}},{"日期":"2026-07-29","时间":"15:30:00","行业指数值":{"水産・農林業":784.03,"鉱業":1058.44,"建設業":2666.74,"食料品":2944.7,"繊維製品":947.88,"パルプ・紙":706.78,"化学":3037.33,"医薬品":4075.87,"石油・石炭製品":2802.28,"ゴム製品":6417.25,"ガラス・土石製品":2247.86,"鉄鋼":829.3,"非鉄金属":4723.06,"金属製品":1973.07,"機械":4735.45,"電気機器":7637.24,"輸送用機器":5141.89,"精密機器":13627.43,"その他製品":6186.19,"電気・ガス業":690.72,"陸運業":2467.66,"海運業":2232.49,"空運業":254.49,"倉庫・運輸関連業":5005.61,"情報・通信業":7847.71,"卸売業":5885.48,"小売業":2490.14,"銀行業":737.74,"証券業":958.98,"保険業":4260.41,"その他金融業":1647.0,"不動産業":2659.8,"サービス業":4047.64},"当日收益率(%)":{"水産・農林業":2.219,"鉱業":1.1709,"建設業":-1.1224,"食料品":2.2938,"繊維製品":0.5847,"パルプ・紙":1.1217,"化学":-0.1187,"医薬品":1.9141,"石油・石炭製品":1.0858,"ゴム製品":4.629,"ガラス・土石製品":-2.5225,"鉄鋼":2.2464,"非鉄金属":-5.3946,"金属製品":-1.5306,"機械":-0.6771,"電気機器":-2.4593,"輸送用機器":5.8409,"精密機器":0.6293,"その他製品":2.2038,"電気・ガス業":0.9293,"陸運業":2.3942,"海運業":1.651,"空運業":2.3158,"倉庫・運輸関連業":0.4028,"情報・通信業":0.8507,"卸売業":0.9322,"小売業":2.3246,"銀行業":-0.9984,"証券業":0.3989,"保険業":1.5096,"その他金融業":1.8691,"不動産業":1.9487,"サービス業":3.1858}},{"日期":"2026-07-30","时间":"15:30:00","行业指数值":{"水産・農林業":766.94,"鉱業":1061.9,"建設業":2636.11,"食料品":2903.23,"繊維製品":941.98,"パルプ・紙":701.19,"化学":3024.32,"医薬品":4026.67,"石油・石炭製品":2786.95,"ゴム製品":6347.01,"ガラス・土石製品":2242.25,"鉄鋼":819.79,"非鉄金属":4761.93,"金属製品":1948.27,"機械":4722.51,"電気機器":7866.17,"輸送用機器":5045.96,"精密機器":13701.65,"その他製品":6239.31,"電気・ガス業":680.26,"陸運業":2420.5,"海運業":2225.52,"空運業":248.93,"倉庫・運輸関連業":4983.64,"情報・通信業":7723.12,"卸売業":5864.07,"小売業":2444.44,"銀行業":715.09,"証券業":923.19,"保険業":4181.32,"その他金融業":1599.36,"不動産業":2628.82,"サービス業":3982.96},"当日收益率(%)":{"水産・農林業":-2.1798,"鉱業":0.3269,"建設業":-1.1486,"食料品":-1.4083,"繊維製品":-0.6224,"パルプ・紙":-0.7909,"化学":-0.4283,"医薬品":-1.2071,"石油・石炭製品":-0.5471,"ゴム製品":-1.0945,"ガラス・土石製品":-0.2496,"鉄鋼":-1.1468,"非鉄金属":0.823,"金属製品":-1.2569,"機械":-0.2733,"電気機器":2.9975,"輸送用機器":-1.8657,"精密機器":0.5446,"その他製品":0.8587,"電気・ガス業":-1.5144,"陸運業":-1.9111,"海運業":-0.3122,"空運業":-2.1848,"倉庫・運輸関連業":-0.4389,"情報・通信業":-1.5876,"卸売業":-0.3638,"小売業":-1.8352,"銀行業":-3.0702,"証券業":-3.7321,"保険業":-1.8564,"その他金融業":-2.8925,"不動産業":-1.1647,"サービス業":-1.598}},{"日期":"2026-07-31","时间":"15:30:00","行业指数值":{"水産・農林業":746.1,"鉱業":1066.04,"建設業":2621.57,"食料品":2882.74,"繊維製品":939.24,"パルプ・紙":686.76,"化学":3038.35,"医薬品":3857.5,"石油・石炭製品":2822.56,"ゴム製品":6257.54,"ガラス・土石製品":2332.13,"鉄鋼":811.99,"非鉄金属":5204.41,"金属製品":1982.15,"機械":4862.06,"電気機器":8350.11,"輸送用機器":4902.62,"精密機器":13919.08,"その他製品":6058.52,"電気・ガス業":681.08,"陸運業":2341.36,"海運業":2220.67,"空運業":245.98,"倉庫・運輸関連業":4943.55,"情報・通信業":7761.27,"卸売業":5894.0,"小売業":2379.25,"銀行業":728.22,"証券業":952.81,"保険業":4153.89,"その他金融業":1611.79,"不動産業":2542.17,"サービス業":3918.01},"当日收益率(%)":{"水産・農林業":-2.7173,"鉱業":0.3899,"建設業":-0.5516,"食料品":-0.7058,"繊維製品":-0.2909,"パルプ・紙":-2.0579,"化学":0.4639,"医薬品":-4.2012,"石油・石炭製品":1.2777,"ゴム製品":-1.4096,"ガラス・土石製品":4.0085,"鉄鋼":-0.9515,"非鉄金属":9.292,"金属製品":1.739,"機械":2.955,"電気機器":6.1522,"輸送用機器":-2.8407,"精密機器":1.5869,"その他製品":-2.8976,"電気・ガス業":0.1205,"陸運業":-3.2696,"海運業":-0.2179,"空運業":-1.1851,"倉庫・運輸関連業":-0.8044,"情報・通信業":0.494,"卸売業":0.5104,"小売業":-2.6669,"銀行業":1.8361,"証券業":3.2084,"保険業":-0.656,"その他金融業":0.7772,"不動産業":-3.2962,"サービス業":-1.6307}},{"日期":"2026-08-03","时间":"15:30:00","行业指数值":{"水産・農林業":741.52,"鉱業":1037.34,"建設業":2572.2,"食料品":2844.24,"繊維製品":929.09,"パルプ・紙":682.8,"化学":3027.38,"医薬品":3825.93,"石油・石炭製品":2745.25,"ゴム製品":6137.65,"ガラス・土石製品":2295.75,"鉄鋼":805.4,"非鉄金属":5169.7,"金属製品":1989.84,"機械":4857.17,"電気機器":8228.25,"輸送用機器":4739.45,"精密機器":14076.77,"その他製品":5995.82,"電気・ガス業":678.46,"陸運業":2275.91,"海運業":2209.14,"空運業":247.91,"倉庫・運輸関連業":4814.84,"情報・通信業":7787.72,"卸売業":5860.89,"小売業":2379.8,"銀行業":722.34,"証券業":942.94,"保険業":4050.44,"その他金融業":1590.47,"不動産業":2451.26,"サービス業":3866.39},"当日收益率(%)":{"水産・農林業":-0.6139,"鉱業":-2.6922,"建設業":-1.8832,"食料品":-1.3355,"繊維製品":-1.0807,"パルプ・紙":-0.5766,"化学":-0.3611,"医薬品":-0.8184,"石油・石炭製品":-2.739,"ゴム製品":-1.9159,"ガラス・土石製品":-1.5599,"鉄鋼":-0.8116,"非鉄金属":-0.6669,"金属製品":0.388,"機械":-0.1006,"電気機器":-1.4594,"輸送用機器":-3.3282,"精密機器":1.1329,"その他製品":-1.0349,"電気・ガス業":-0.3847,"陸運業":-2.7954,"海運業":-0.5192,"空運業":0.7846,"倉庫・運輸関連業":-2.6036,"情報・通信業":0.3408,"卸売業":-0.5618,"小売業":0.0231,"銀行業":-0.8074,"証券業":-1.0359,"保険業":-2.4904,"その他金融業":-1.3228,"不動産業":-3.5761,"サービス業":-1.3175}},{"日期":"2026-08-04","时间":"15:30:00","行业指数值":{"水産・農林業":729.01,"鉱業":1031.12,"建設業":2585.85,"食料品":2802.03,"繊維製品":935.98,"パルプ・紙":679.12,"化学":3058.11,"医薬品":3798.33,"石油・石炭製品":2716.21,"ゴム製品":6108.16,"ガラス・土石製品":2315.26,"鉄鋼":804.8,"非鉄金属":5444.61,"金属製品":2005.48,"機械":5015.26,"電気機器":8322.56,"輸送用機器":4705.31,"精密機器":14346.27,"その他製品":5995.45,"電気・ガス業":670.45,"陸運業":2236.88,"海運業":2245.04,"空運業":245.86,"倉庫・運輸関連業":4796.77,"情報・通信業":7663.79,"卸売業":5811.61,"小売業":2351.16,"銀行業":713.68,"証券業":942.1,"保険業":3991.78,"その他金融業":1584.34,"不動産業":2439.01,"サービス業":3835.72},"当日收益率(%)":{"水産・農林業":-1.6871,"鉱業":-0.5996,"建設業":0.5307,"食料品":-1.4841,"繊維製品":0.7416,"パルプ・紙":-0.539,"化学":1.0151,"医薬品":-0.7214,"石油・石炭製品":-1.0578,"ゴム製品":-0.4805,"ガラス・土石製品":0.8498,"鉄鋼":-0.0745,"非鉄金属":5.3177,"金属製品":0.786,"機械":3.2548,"電気機器":1.1462,"輸送用機器":-0.7203,"精密機器":1.9145,"その他製品":-0.0062,"電気・ガス業":-1.1806,"陸運業":-1.7149,"海運業":1.6251,"空運業":-0.8269,"倉庫・運輸関連業":-0.3753,"情報・通信業":-1.5914,"卸売業":-0.8408,"小売業":-1.2035,"銀行業":-1.1989,"証券業":-0.0891,"保険業":-1.4482,"その他金融業":-0.3854,"不動産業":-0.4997,"サービス業":-0.7932}},{"日期":"2026-08-05","时间":"15:30:00","行业指数值":{"水産・農林業":722.08,"鉱業":1008.95,"建設業":2606.42,"食料品":2827.32,"繊維製品":958.12,"パルプ・紙":682.34,"化学":3138.16,"医薬品":3794.67,"石油・石炭製品":2713.49,"ゴム製品":6186.38,"ガラス・土石製品":2422.66,"鉄鋼":824.18,"非鉄金属":5939.17,"金属製品":2077.97,"機械":5053.05,"電気機器":8669.09,"輸送用機器":4767.02,"精密機器":14419.99,"その他製品":6008.96,"電気・ガス業":664.65,"陸運業":2225.74,"海運業":2179.31,"空運業":250.93,"倉庫・運輸関連業":4702.19,"情報・通信業":8016.13,"卸売業":5799.51,"小売業":2332.6,"銀行業":732.7,"証券業":965.79,"保険業":4035.89,"その他金融業":1629.76,"不動産業":2459.08,"サービス業":3872.68},"当日收益率(%)":{"水産・農林業":-0.9506,"鉱業":-2.1501,"建設業":0.7955,"食料品":0.9026,"繊維製品":2.3654,"パルプ・紙":0.4741,"化学":2.6176,"医薬品":-0.0964,"石油・石炭製品":-0.1001,"ゴム製品":1.2806,"ガラス・土石製品":4.6388,"鉄鋼":2.4081,"非鉄金属":9.0835,"金属製品":3.6146,"機械":0.7535,"電気機器":4.1637,"輸送用機器":1.3115,"精密機器":0.5139,"その他製品":0.2253,"電気・ガス業":-0.8651,"陸運業":-0.498,"海運業":-2.9278,"空運業":2.0621,"倉庫・運輸関連業":-1.9717,"情報・通信業":4.5975,"卸売業":-0.2082,"小売業":-0.7894,"銀行業":2.6651,"証券業":2.5146,"保険業":1.105,"その他金融業":2.8668,"不動産業":0.8229,"サービス業":0.9636}},{"日期":"2026-08-06","时间":"15:30:00","行业指数值":{"水産・農林業":738.96,"鉱業":1028.13,"建設業":2620.45,"食料品":2896.87,"繊維製品":1009.38,"パルプ・紙":692.2,"化学":3169.32,"医薬品":3904.74,"石油・石炭製品":2751.04,"ゴム製品":6301.14,"ガラス・土石製品":2372.05,"鉄鋼":836.97,"非鉄金属":5605.22,"金属製品":2048.86,"機械":5032.71,"電気機器":8497.18,"輸送用機器":4844.5,"精密機器":14354.96,"その他製品":6165.79,"電気・ガス業":670.36,"陸運業":2244.04,"海運業":2218.27,"空運業":251.87,"倉庫・運輸関連業":4713.73,"情報・通信業":7970.59,"卸売業":5910.01,"小売業":2376.26,"銀行業":741.56,"証券業":975.23,"保険業":4062.47,"その他金融業":1632.3,"不動産業":2481.68,"サービス業":3925.51},"当日收益率(%)":{"水産・農林業":2.3377,"鉱業":1.901,"建設業":0.5383,"食料品":2.4599,"繊維製品":5.3501,"パルプ・紙":1.445,"化学":0.9929,"医薬品":2.9006,"石油・石炭製品":1.3838,"ゴム製品":1.855,"ガラス・土石製品":-2.089,"鉄鋼":1.5518,"非鉄金属":-5.6228,"金属製品":-1.4009,"機械":-0.4025,"電気機器":-1.983,"輸送用機器":1.6253,"精密機器":-0.451,"その他製品":2.6099,"電気・ガス業":0.8591,"陸運業":0.8222,"海運業":1.7877,"空運業":0.3746,"倉庫・運輸関連業":0.2454,"情報・通信業":-0.5681,"卸売業":1.9053,"小売業":1.8717,"銀行業":1.2092,"証券業":0.9774,"保険業":0.6586,"その他金融業":0.1559,"不動産業":0.919,"サービス業":1.3642}},{"日期":"2026-08-07","时间":"15:30:00","行业指数值":{"水産・農林業":739.13,"鉱業":1034.36,"建設業":2581.73,"食料品":2934.29,"繊維製品":1026.89,"パルプ・紙":698.88,"化学":3152.29,"医薬品":4005.27,"石油・石炭製品":2867.61,"ゴム製品":6492.3,"ガラス・土石製品":2348.03,"鉄鋼":846.58,"非鉄金属":5762.06,"金属製品":2038.84,"機械":4999.53,"電気機器":8469.2,"輸送用機器":4853.79,"精密機器":14443.61,"その他製品":6389.39,"電気・ガス業":670.3,"陸運業":2267.77,"海運業":2276.23,"空運業":251.0,"倉庫・運輸関連業":4815.77,"情報・通信業":8019.54,"卸売業":6038.59,"小売業":2403.05,"銀行業":739.25,"証券業":964.23,"保険業":4105.19,"その他金融業":1609.64,"不動産業":2497.46,"サービス業":3981.11},"当日收益率(%)":{"水産・農林業":0.023,"鉱業":0.606,"建設業":-1.4776,"食料品":1.2917,"繊維製品":1.7347,"パルプ・紙":0.965,"化学":-0.5373,"医薬品":2.5746,"石油・石炭製品":4.2373,"ゴム製品":3.0337,"ガラス・土石製品":-1.0126,"鉄鋼":1.1482,"非鉄金属":2.7981,"金属製品":-0.4891,"機械":-0.6593,"電気機器":-0.3293,"輸送用機器":0.1918,"精密機器":0.6176,"その他製品":3.6265,"電気・ガス業":-0.009,"陸運業":1.0575,"海運業":2.6128,"空運業":-0.3454,"倉庫・運輸関連業":2.1647,"情報・通信業":0.6141,"卸売業":2.1756,"小売業":1.1274,"銀行業":-0.3115,"証券業":-1.1279,"保険業":1.0516,"その他金融業":-1.3882,"不動産業":0.6359,"サービス業":1.4164}},{"日期":"2026-08-10","时间":"15:30:00","行业指数值":{"水産・農林業":739.52,"鉱業":1066.13,"建設業":2552.02,"食料品":2936.73,"繊維製品":1037.84,"パルプ・紙":698.46,"化学":3179.73,"医薬品":4050.11,"石油・石炭製品":2730.45,"ゴム製品":6603.78,"ガラス・土石製品":2365.69,"鉄鋼":837.46,"非鉄金属":5950.5,"金属製品":2047.82,"機械":5029.68,"電気機器":8613.13,"輸送用機器":4879.07,"精密機器":15074.25,"その他製品":6528.44,"電気・ガス業":666.52,"陸運業":2266.47,"海運業":2299.32,"空運業":249.61,"倉庫・運輸関連業":4790.96,"情報・通信業":7973.69,"卸売業":6023.01,"小売業":2422.5,"銀行業":725.28,"証券業":957.86,"保険業":4003.29,"その他金融業":1591.88,"不動産業":2447.8,"サービス業":4354.65},"当日收益率(%)":{"水産・農林業":0.0528,"鉱業":3.0715,"建設業":-1.1508,"食料品":0.0832,"繊維製品":1.0663,"パルプ・紙":-0.0601,"化学":0.8705,"医薬品":1.1195,"石油・石炭製品":-4.7831,"ゴム製品":1.7171,"ガラス・土石製品":0.7521,"鉄鋼":-1.0773,"非鉄金属":3.2704,"金属製品":0.4404,"機械":0.6031,"電気機器":1.6995,"輸送用機器":0.5208,"精密機器":4.3662,"その他製品":2.1763,"電気・ガス業":-0.5639,"陸運業":-0.0573,"海運業":1.0144,"空運業":-0.5538,"倉庫・運輸関連業":-0.5152,"情報・通信業":-0.5717,"卸売業":-0.258,"小売業":0.8094,"銀行業":-1.8898,"証券業":-0.6606,"保険業":-2.4822,"その他金融業":-1.1034,"不動産業":-1.9884,"サービス業":9.3828}},{"日期":"2026-08-12","时间":"15:30:00","行业指数值":{"水産・農林業":745.06,"鉱業":1095.71,"建設業":2569.7,"食料品":2952.87,"繊維製品":1031.14,"パルプ・紙":694.26,"化学":3217.35,"医薬品":4037.3,"石油・石炭製品":2755.93,"ゴム製品":6521.29,"ガラス・土石製品":2382.9,"鉄鋼":835.74,"非鉄金属":6135.92,"金属製品":2076.03,"機械":5054.12,"電気機器":8730.21,"輸送用機器":4879.0,"精密機器":15066.64,"その他製品":6554.17,"電気・ガス業":675.14,"陸運業":2275.16,"海運業":2278.44,"空運業":247.76,"倉庫・運輸関連業":4794.15,"情報・通信業":8010.02,"卸売業":6011.74,"小売業":2406.78,"銀行業":746.06,"証券業":968.26,"保険業":4025.62,"その他金融業":1606.91,"不動産業":2443.14,"サービス業":4422.2},"当日收益率(%)":{"水産・農林業":0.7491,"鉱業":2.7745,"建設業":0.6928,"食料品":0.5496,"繊維製品":-0.6456,"パルプ・紙":-0.6013,"化学":1.1831,"医薬品":-0.3163,"石油・石炭製品":0.9332,"ゴム製品":-1.2491,"ガラス・土石製品":0.7275,"鉄鋼":-0.2054,"非鉄金属":3.116,"金属製品":1.3776,"機械":0.4859,"電気機器":1.3593,"輸送用機器":-0.0014,"精密機器":-0.0505,"その他製品":0.3941,"電気・ガス業":1.2933,"陸運業":0.3834,"海運業":-0.9081,"空運業":-0.7412,"倉庫・運輸関連業":0.0666,"情報・通信業":0.4556,"卸売業":-0.1871,"小売業":-0.6489,"銀行業":2.8651,"証券業":1.0858,"保険業":0.5578,"その他金融業":0.9442,"不動産業":-0.1904,"サービス業":1.5512}},{"日期":"2026-08-13","时间":"15:30:00","行业指数值":{"水産・農林業":747.96,"鉱業":1089.91,"建設業":2587.44,"食料品":2973.79,"繊維製品":1036.2,"パルプ・紙":695.59,"化学":3211.21,"医薬品":4032.52,"石油・石炭製品":2750.57,"ゴム製品":6404.8,"ガラス・土石製品":2427.17,"鉄鋼":826.2,"非鉄金属":6158.74,"金属製品":2111.95,"機械":5138.15,"電気機器":8891.04,"輸送用機器":4850.58,"精密機器":15262.43,"その他製品":6512.09,"電気・ガス業":681.33,"陸運業":2273.62,"海運業":2310.77,"空運業":247.94,"倉庫・運輸関連業":4803.7,"情報・通信業":8039.54,"卸売業":5997.29,"小売業":2401.04,"銀行業":767.5,"証券業":977.85,"保険業":4006.46,"その他金融業":1617.18,"不動産業":2451.6,"サービス業":4442.3},"当日收益率(%)":{"水産・農林業":0.3892,"鉱業":-0.5293,"建設業":0.6904,"食料品":0.7085,"繊維製品":0.4907,"パルプ・紙":0.1916,"化学":-0.1908,"医薬品":-0.1184,"石油・石炭製品":-0.1945,"ゴム製品":-1.7863,"ガラス・土石製品":1.8578,"鉄鋼":-1.1415,"非鉄金属":0.3719,"金属製品":1.7302,"機械":1.6626,"電気機器":1.8422,"輸送用機器":-0.5825,"精密機器":1.2995,"その他製品":-0.642,"電気・ガス業":0.9168,"陸運業":-0.0677,"海運業":1.419,"空運業":0.0727,"倉庫・運輸関連業":0.1992,"情報・通信業":0.3685,"卸売業":-0.2404,"小売業":-0.2385,"銀行業":2.8738,"証券業":0.9904,"保険業":-0.476,"その他金融業":0.6391,"不動産業":0.3463,"サービス業":0.4545}},{"日期":"2026-08-14","时间":"15:30:00","行业指数值":{"水産・農林業":760.33,"鉱業":1114.02,"建設業":2604.13,"食料品":2999.7,"繊維製品":1041.55,"パルプ・紙":702.02,"化学":3201.22,"医薬品":4001.57,"石油・石炭製品":2779.68,"ゴム製品":6438.76,"ガラス・土石製品":2419.07,"鉄鋼":826.89,"非鉄金属":6119.64,"金属製品":2126.05,"機械":5132.7,"電気機器":9006.38,"輸送用機器":4917.7,"精密機器":15392.31,"その他製品":6845.7,"電気・ガス業":681.76,"陸運業":2292.65,"海運業":2384.83,"空運業":250.54,"倉庫・運輸関連業":4803.12,"情報・通信業":8213.41,"卸売業":5977.94,"小売業":2400.7,"銀行業":765.18,"証券業":970.48,"保険業":3985.65,"その他金融業":1608.89,"不動産業":2447.12,"サービス業":4411.77},"当日收益率(%)":{"水産・農林業":1.6538,"鉱業":2.2121,"建設業":0.645,"食料品":0.8713,"繊維製品":0.5163,"パルプ・紙":0.9244,"化学":-0.3111,"医薬品":-0.7675,"石油・石炭製品":1.0583,"ゴム製品":0.5302,"ガラス・土石製品":-0.3337,"鉄鋼":0.0835,"非鉄金属":-0.6349,"金属製品":0.6676,"機械":-0.1061,"電気機器":1.2973,"輸送用機器":1.3838,"精密機器":0.851,"その他製品":5.1229,"電気・ガス業":0.0631,"陸運業":0.837,"海運業":3.205,"空運業":1.0486,"倉庫・運輸関連業":-0.0121,"情報・通信業":2.1627,"卸売業":-0.3226,"小売業":-0.0142,"銀行業":-0.3023,"証券業":-0.7537,"保険業":-0.5194,"その他金融業":-0.5126,"不動産業":-0.1827,"サービス業":-0.6873}},{"日期":"2026-08-17","时间":"15:30:00","行业指数值":{"水産・農林業":755.0,"鉱業":1113.3,"建設業":2612.39,"食料品":2975.63,"繊維製品":1030.54,"パルプ・紙":689.49,"化学":3197.38,"医薬品":3937.99,"石油・石炭製品":2794.51,"ゴム製品":6377.13,"ガラス・土石製品":2437.84,"鉄鋼":825.07,"非鉄金属":6440.26,"金属製品":2141.69,"機械":5151.79,"電気機器":9000.2,"輸送用機器":4910.65,"精密機器":15258.29,"その他製品":6757.03,"電気・ガス業":682.94,"陸運業":2272.39,"海運業":2428.18,"空運業":247.94,"倉庫・運輸関連業":4775.88,"情報・通信業":8188.63,"卸売業":5896.0,"小売業":2373.86,"銀行業":761.17,"証券業":963.7,"保険業":3944.12,"その他金融業":1598.06,"不動産業":2436.93,"サービス業":4376.12},"当日收益率(%)":{"水産・農林業":-0.701,"鉱業":-0.0646,"建設業":0.3172,"食料品":-0.8024,"繊維製品":-1.0571,"パルプ・紙":-1.7848,"化学":-0.12,"医薬品":-1.5889,"石油・石炭製品":0.5335,"ゴム製品":-0.9572,"ガラス・土石製品":0.7759,"鉄鋼":-0.2201,"非鉄金属":5.2392,"金属製品":0.7356,"機械":0.3719,"電気機器":-0.0686,"輸送用機器":-0.1434,"精密機器":-0.8707,"その他製品":-1.2953,"電気・ガス業":0.1731,"陸運業":-0.8837,"海運業":1.8177,"空運業":-1.0378,"倉庫・運輸関連業":-0.5671,"情報・通信業":-0.3017,"卸売業":-1.3707,"小売業":-1.118,"銀行業":-0.5241,"証券業":-0.6986,"保険業":-1.042,"その他金融業":-0.6731,"不動産業":-0.4164,"サービス業":-0.8081}},{"日期":"2026-08-18","时间":"15:30:00","行业指数值":{"水産・農林業":762.07,"鉱業":1148.87,"建設業":2584.46,"食料品":2937.24,"繊維製品":1032.23,"パルプ・紙":692.4,"化学":3155.05,"医薬品":3995.96,"石油・石炭製品":2854.09,"ゴム製品":6338.27,"ガラス・土石製品":2385.0,"鉄鋼":842.57,"非鉄金属":6304.56,"金属製品":2093.49,"機械":5070.56,"電気機器":8665.13,"輸送用機器":4928.74,"精密機器":15117.98,"その他製品":6673.74,"電気・ガス業":688.43,"陸運業":2282.88,"海運業":2516.46,"空運業":244.61,"倉庫・運輸関連業":4798.35,"情報・通信業":8159.15,"卸売業":5939.37,"小売業":2361.6,"銀行業":763.02,"証券業":961.95,"保険業":3930.51,"その他金融業":1585.79,"不動産業":2414.45,"サービス業":4327.11},"当日收益率(%)":{"水産・農林業":0.9364,"鉱業":3.195,"建設業":-1.0691,"食料品":-1.2901,"繊維製品":0.164,"パルプ・紙":0.4221,"化学":-1.3239,"医薬品":1.4721,"石油・石炭製品":2.132,"ゴム製品":-0.6094,"ガラス・土石製品":-2.1675,"鉄鋼":2.121,"非鉄金属":-2.1071,"金属製品":-2.2506,"機械":-1.5767,"電気機器":-3.7229,"輸送用機器":0.3684,"精密機器":-0.9196,"その他製品":-1.2326,"電気・ガス業":0.8039,"陸運業":0.4616,"海運業":3.6356,"空運業":-1.3431,"倉庫・運輸関連業":0.4705,"情報・通信業":-0.36,"卸売業":0.7356,"小売業":-0.5165,"銀行業":0.243,"証券業":-0.1816,"保険業":-0.3451,"その他金融業":-0.7678,"不動産業":-0.9225,"サービス業":-1.1199}},{"日期":"2026-08-19","时间":"15:30:00","行业指数值":{"水産・農林業":760.16,"鉱業":1133.84,"建設業":2511.65,"食料品":2920.31,"繊維製品":998.92,"パルプ・紙":681.64,"化学":3064.17,"医薬品":4027.16,"石油・石炭製品":2772.18,"ゴム製品":6194.6,"ガラス・土石製品":2256.29,"鉄鋼":821.75,"非鉄金属":5779.18,"金属製品":2016.56,"機械":4811.86,"電気機器":8320.99,"輸送用機器":4787.4,"精密機器":14679.74,"その他製品":6566.05,"電気・ガス業":678.6,"陸運業":2269.43,"海運業":2522.29,"空運業":243.53,"倉庫・運輸関連業":4767.28,"情報・通信業":7893.87,"卸売業":5785.54,"小売業":2348.74,"銀行業":727.58,"証券業":938.42,"保険業":3835.07,"その他金融業":1548.34,"不動産業":2411.72,"サービス業":4276.62},"当日收益率(%)":{"水産・農林業":-0.2506,"鉱業":-1.3082,"建設業":-2.8172,"食料品":-0.5764,"繊維製品":-3.227,"パルプ・紙":-1.554,"化学":-2.8805,"医薬品":0.7808,"石油・石炭製品":-2.8699,"ゴム製品":-2.2667,"ガラス・土石製品":-5.3966,"鉄鋼":-2.471,"非鉄金属":-8.3333,"金属製品":-3.6747,"機械":-5.102,"電気機器":-3.9716,"輸送用機器":-2.8677,"精密機器":-2.8988,"その他製品":-1.6136,"電気・ガス業":-1.4279,"陸運業":-0.5892,"海運業":0.2317,"空運業":-0.4415,"倉庫・運輸関連業":-0.6475,"情報・通信業":-3.2513,"卸売業":-2.59,"小売業":-0.5445,"銀行業":-4.6447,"証券業":-2.4461,"保険業":-2.4282,"その他金融業":-2.3616,"不動産業":-0.1131,"サービス業":-1.1668}},{"日期":"2026-08-20","时间":"15:30:00","行业指数值":{"水産・農林業":767.24,"鉱業":1139.82,"建設業":2568.05,"食料品":2941.76,"繊維製品":1013.42,"パルプ・紙":688.3,"化学":3114.63,"医薬品":4142.89,"石油・石炭製品":2820.16,"ゴム製品":6336.42,"ガラス・土石製品":2287.07,"鉄鋼":816.45,"非鉄金属":5911.57,"金属製品":2028.3,"機械":4859.13,"電気機器":8377.37,"輸送用機器":4976.52,"精密機器":14836.96,"その他製品":6692.84,"電気・ガス業":700.05,"陸運業":2291.85,"海運業":2533.02,"空運業":244.52,"倉庫・運輸関連業":4762.66,"情報・通信業":8052.82,"卸売業":5849.19,"小売業":2380.27,"銀行業":723.73,"証券業":957.33,"保険業":3824.02,"その他金融業":1555.6,"不動産業":2467.8,"サービス業":4366.41},"当日收益率(%)":{"水産・農林業":0.9314,"鉱業":0.5274,"建設業":2.2455,"食料品":0.7345,"繊維製品":1.4516,"パルプ・紙":0.9771,"化学":1.6468,"医薬品":2.8737,"石油・石炭製品":1.7308,"ゴム製品":2.2894,"ガラス・土石製品":1.3642,"鉄鋼":-0.645,"非鉄金属":2.2908,"金属製品":0.5822,"機械":0.9824,"電気機器":0.6776,"輸送用機器":3.9504,"精密機器":1.071,"その他製品":1.931,"電気・ガス業":3.1609,"陸運業":0.9879,"海運業":0.4254,"空運業":0.4065,"倉庫・運輸関連業":-0.0969,"情報・通信業":2.0136,"卸売業":1.1002,"小売業":1.3424,"銀行業":-0.5292,"証券業":2.0151,"保険業":-0.2881,"その他金融業":0.4689,"不動産業":2.3253,"サービス業":2.0996}},{"日期":"2026-08-21","时间":"15:30:00","行业指数值":{"水産・農林業":770.63,"鉱業":1164.71,"建設業":2559.51,"食料品":2965.09,"繊維製品":1012.33,"パルプ・紙":694.58,"化学":3106.71,"医薬品":4081.86,"石油・石炭製品":2879.12,"ゴム製品":6363.16,"ガラス・土石製品":2266.75,"鉄鋼":812.07,"非鉄金属":5870.07,"金属製品":2025.28,"機械":4818.27,"電気機器":8357.44,"輸送用機器":5034.33,"精密機器":14682.89,"その他製品":6573.44,"電気・ガス業":711.36,"陸運業":2319.06,"海運業":2657.76,"空運業":244.83,"倉庫・運輸関連業":4780.08,"情報・通信業":8028.14,"卸売業":5949.95,"小売業":2359.12,"銀行業":731.17,"証券業":969.95,"保険業":3896.26,"その他金融業":1573.29,"不動産業":2475.65,"サービス業":4337.44},"当日收益率(%)":{"水産・農林業":0.4418,"鉱業":2.1837,"建設業":-0.3325,"食料品":0.7931,"繊維製品":-0.1076,"パルプ・紙":0.9124,"化学":-0.2543,"医薬品":-1.4731,"石油・石炭製品":2.0907,"ゴム製品":0.422,"ガラス・土石製品":-0.8885,"鉄鋼":-0.5365,"非鉄金属":-0.702,"金属製品":-0.1489,"機械":-0.8409,"電気機器":-0.2379,"輸送用機器":1.1617,"精密機器":-1.0384,"その他製品":-1.784,"電気・ガス業":1.6156,"陸運業":1.1873,"海運業":4.9246,"空運業":0.1268,"倉庫・運輸関連業":0.3658,"情報・通信業":-0.3065,"卸売業":1.7226,"小売業":-0.8886,"銀行業":1.028,"証券業":1.3182,"保険業":1.8891,"その他金融業":1.1372,"不動産業":0.3181,"サービス業":-0.6635}},{"日期":"2026-08-24","时间":"15:30:00","行业指数值":{"水産・農林業":764.31,"鉱業":1150.99,"建設業":2593.82,"食料品":2953.72,"繊維製品":1012.89,"パルプ・紙":696.33,"化学":3105.63,"医薬品":4094.89,"石油・石炭製品":2891.5,"ゴム製品":6414.82,"ガラス・土石製品":2250.1,"鉄鋼":820.94,"非鉄金属":5827.58,"金属製品":2031.26,"機械":4872.67,"電気機器":8361.27,"輸送用機器":5029.48,"精密機器":14708.47,"その他製品":6655.33,"電気・ガス業":708.21,"陸運業":2322.54,"海運業":2682.37,"空運業":244.72,"倉庫・運輸関連業":4816.24,"情報・通信業":7934.56,"卸売業":6023.08,"小売業":2357.86,"銀行業":727.36,"証券業":970.46,"保険業":3863.37,"その他金融業":1585.85,"不動産業":2491.49,"サービス業":4428.85},"当日收益率(%)":{"水産・農林業":-0.8201,"鉱業":-1.178,"建設業":1.3405,"食料品":-0.3835,"繊維製品":0.0553,"パルプ・紙":0.252,"化学":-0.0348,"医薬品":0.3192,"石油・石炭製品":0.43,"ゴム製品":0.8119,"ガラス・土石製品":-0.7345,"鉄鋼":1.0923,"非鉄金属":-0.7238,"金属製品":0.2953,"機械":1.129,"電気機器":0.0458,"輸送用機器":-0.0963,"精密機器":0.1742,"その他製品":1.2458,"電気・ガス業":-0.4428,"陸運業":0.1501,"海運業":0.926,"空運業":-0.0449,"倉庫・運輸関連業":0.7565,"情報・通信業":-1.1656,"卸売業":1.2291,"小売業":-0.0534,"銀行業":-0.5211,"証券業":0.0526,"保険業":-0.8441,"その他金融業":0.7983,"不動産業":0.6398,"サービス業":2.1075}},{"日期":"2026-08-25","时间":"15:30:00","行业指数值":{"水産・農林業":765.66,"鉱業":1146.25,"建設業":2594.75,"食料品":2981.47,"繊維製品":1008.07,"パルプ・紙":693.57,"化学":3106.05,"医薬品":4086.27,"石油・石炭製品":2888.99,"ゴム製品":6379.73,"ガラス・土石製品":2258.14,"鉄鋼":823.5,"非鉄金属":5992.4,"金属製品":2051.36,"機械":4877.98,"電気機器":8401.3,"輸送用機器":4964.64,"精密機器":14780.66,"その他製品":6668.33,"電気・ガス業":708.36,"陸運業":2341.26,"海運業":2657.86,"空運業":246.05,"倉庫・運輸関連業":4793.12,"情報・通信業":8025.19,"卸売業":6017.44,"小売業":2366.38,"銀行業":736.8,"証券業":986.26,"保険業":3934.86,"その他金融業":1600.27,"不動産業":2491.24,"サービス業":4451.82},"当日收益率(%)":{"水産・農林業":0.1766,"鉱業":-0.4118,"建設業":0.0359,"食料品":0.9395,"繊維製品":-0.4759,"パルプ・紙":-0.3964,"化学":0.0135,"医薬品":-0.2105,"石油・石炭製品":-0.0868,"ゴム製品":-0.547,"ガラス・土石製品":0.3573,"鉄鋼":0.3118,"非鉄金属":2.8283,"金属製品":0.9895,"機械":0.109,"電気機器":0.4788,"輸送用機器":-1.2892,"精密機器":0.4908,"その他製品":0.1953,"電気・ガス業":0.0212,"陸運業":0.806,"海運業":-0.9137,"空運業":0.5435,"倉庫・運輸関連業":-0.48,"情報・通信業":1.1422,"卸売業":-0.0936,"小売業":0.3613,"銀行業":1.2978,"証券業":1.6281,"保険業":1.8505,"その他金融業":0.9093,"不動産業":-0.01,"サービス業":0.5186}},{"日期":"2026-08-26","时间":"15:30:00","行业指数值":{"水産・農林業":765.78,"鉱業":1136.64,"建設業":2602.54,"食料品":2969.5,"繊維製品":1002.9,"パルプ・紙":698.71,"化学":3105.85,"医薬品":4128.85,"石油・石炭製品":2835.79,"ゴム製品":6384.92,"ガラス・土石製品":2257.33,"鉄鋼":828.54,"非鉄金属":6040.82,"金属製品":2033.39,"機械":4868.53,"電気機器":8436.35,"輸送用機器":4948.51,"精密機器":14724.29,"その他製品":6664.54,"電気・ガス業":713.74,"陸運業":2326.62,"海運業":2594.85,"空運業":247.97,"倉庫・運輸関連業":4810.25,"情報・通信業":8060.12,"卸売業":6000.75,"小売業":2363.31,"銀行業":747.22,"証券業":1006.48,"保険業":4001.12,"その他金融業":1613.53,"不動産業":2509.69,"サービス業":4533.97},"当日收益率(%)":{"水産・農林業":0.0157,"鉱業":-0.8384,"建設業":0.3002,"食料品":-0.4015,"繊維製品":-0.5129,"パルプ・紙":0.7411,"化学":-0.0064,"医薬品":1.042,"石油・石炭製品":-1.8415,"ゴム製品":0.0814,"ガラス・土石製品":-0.0359,"鉄鋼":0.612,"非鉄金属":0.808,"金属製品":-0.876,"機械":-0.1937,"電気機器":0.4172,"輸送用機器":-0.3249,"精密機器":-0.3814,"その他製品":-0.0568,"電気・ガス業":0.7595,"陸運業":-0.6253,"海運業":-2.3707,"空運業":0.7803,"倉庫・運輸関連業":0.3574,"情報・通信業":0.4353,"卸売業":-0.2774,"小売業":-0.1297,"銀行業":1.4142,"証券業":2.0502,"保険業":1.6839,"その他金融業":0.8286,"不動産業":0.7406,"サービス業":1.8453}},{"日期":"2026-08-27","时间":"15:30:00","行业指数值":{"水産・農林業":764.03,"鉱業":1143.68,"建設業":2611.72,"食料品":2958.42,"繊維製品":1010.62,"パルプ・紙":700.11,"化学":3123.82,"医薬品":4099.3,"石油・石炭製品":2867.85,"ゴム製品":6373.42,"ガラス・土石製品":2261.49,"鉄鋼":823.53,"非鉄金属":6133.88,"金属製品":2035.16,"機械":4889.26,"電気機器":8488.34,"輸送用機器":4940.32,"精密機器":14581.89,"その他製品":6577.89,"電気・ガス業":710.17,"陸運業":2331.71,"海運業":2577.6,"空運業":247.36,"倉庫・運輸関連業":4815.32,"情報・通信業":8046.96,"卸売業":5997.35,"小売業":2349.27,"銀行業":752.28,"証券業":1012.83,"保険業":3991.68,"その他金融業":1612.74,"不動産業":2501.24,"サービス業":4511.01},"当日收益率(%)":{"水産・農林業":-0.2285,"鉱業":0.6194,"建設業":0.3527,"食料品":-0.3731,"繊維製品":0.7698,"パルプ・紙":0.2004,"化学":0.5786,"医薬品":-0.7157,"石油・石炭製品":1.1305,"ゴム製品":-0.1801,"ガラス・土石製品":0.1843,"鉄鋼":-0.6047,"非鉄金属":1.5405,"金属製品":0.087,"機械":0.4258,"電気機器":0.6163,"輸送用機器":-0.1655,"精密機器":-0.9671,"その他製品":-1.3002,"電気・ガス業":-0.5002,"陸運業":0.2188,"海運業":-0.6648,"空運業":-0.246,"倉庫・運輸関連業":0.1054,"情報・通信業":-0.1633,"卸売業":-0.0567,"小売業":-0.5941,"銀行業":0.6772,"証券業":0.6309,"保険業":-0.2359,"その他金融業":-0.049,"不動産業":-0.3367,"サービス業":-0.5064}},{"日期":"2026-08-28","时间":"15:30:00","行业指数值":{"水産・農林業":757.75,"鉱業":1150.33,"建設業":2598.68,"食料品":2956.94,"繊維製品":1014.46,"パルプ・紙":699.98,"化学":3119.94,"医薬品":4109.82,"石油・石炭製品":2861.11,"ゴム製品":6321.35,"ガラス・土石製品":2234.24,"鉄鋼":828.0,"非鉄金属":6025.74,"金属製品":2025.35,"機械":4887.09,"電気機器":8564.98,"輸送用機器":5002.21,"精密機器":14552.9,"その他製品":6714.98,"電気・ガス業":709.99,"陸運業":2325.53,"海運業":2632.45,"空運業":248.28,"倉庫・運輸関連業":4834.3,"情報・通信業":8118.75,"卸売業":6046.74,"小売業":2349.76,"銀行業":763.84,"証券業":1030.11,"保険業":4026.67,"その他金融業":1599.34,"不動産業":2522.69,"サービス業":4641.34},"当日收益率(%)":{"水産・農林業":-0.822,"鉱業":0.5815,"建設業":-0.4993,"食料品":-0.05,"繊維製品":0.38,"パルプ・紙":-0.0186,"化学":-0.1242,"医薬品":0.2566,"石油・石炭製品":-0.235,"ゴム製品":-0.817,"ガラス・土石製品":-1.205,"鉄鋼":0.5428,"非鉄金属":-1.763,"金属製品":-0.482,"機械":-0.0444,"電気機器":0.9029,"輸送用機器":1.2528,"精密機器":-0.1988,"その他製品":2.0841,"電気・ガス業":-0.0253,"陸運業":-0.265,"海運業":2.1279,"空運業":0.3719,"倉庫・運輸関連業":0.3942,"情報・通信業":0.8921,"卸売業":0.8235,"小売業":0.0209,"銀行業":1.5367,"証券業":1.7061,"保険業":0.8766,"その他金融業":-0.8309,"不動産業":0.8576,"サービス業":2.8892}},{"日期":"2026-08-31","时间":"15:30:00","行业指数值":{"水産・農林業":757.73,"鉱業":1170.53,"建設業":2602.57,"食料品":2958.02,"繊維製品":1015.93,"パルプ・紙":706.83,"化学":3142.29,"医薬品":4080.09,"石油・石炭製品":2905.85,"ゴム製品":6377.04,"ガラス・土石製品":2263.07,"鉄鋼":824.59,"非鉄金属":6076.96,"金属製品":2034.17,"機械":4841.96,"電気機器":8535.57,"輸送用機器":5055.38,"精密機器":14555.22,"その他製品":6727.2,"電気・ガス業":729.83,"陸運業":2333.37,"海運業":2602.69,"空運業":245.16,"倉庫・運輸関連業":4837.06,"情報・通信業":8170.27,"卸売業":6062.88,"小売業":2352.19,"銀行業":770.52,"証券業":1017.84,"保険業":4022.95,"その他金融業":1599.38,"不動産業":2501.98,"サービス業":4707.99},"当日收益率(%)":{"水産・農林業":-0.0026,"鉱業":1.756,"建設業":0.1497,"食料品":0.0365,"繊維製品":0.1449,"パルプ・紙":0.9786,"化学":0.7164,"医薬品":-0.7234,"石油・石炭製品":1.5637,"ゴム製品":0.881,"ガラス・土石製品":1.2904,"鉄鋼":-0.4118,"非鉄金属":0.85,"金属製品":0.4355,"機械":-0.9235,"電気機器":-0.3434,"輸送用機器":1.0629,"精密機器":0.0159,"その他製品":0.182,"電気・ガス業":2.7944,"陸運業":0.3371,"海運業":-1.1305,"空運業":-1.2566,"倉庫・運輸関連業":0.0571,"情報・通信業":0.6346,"卸売業":0.2669,"小売業":0.1034,"銀行業":0.8745,"証券業":-1.1911,"保険業":-0.0924,"その他金融業":0.0025,"不動産業":-0.8209,"サービス業":1.436}},{"日期":"2026-09-01","时间":"15:30:00","行业指数值":{"水産・農林業":762.34,"鉱業":1215.13,"建設業":2659.16,"食料品":2975.48,"繊維製品":1025.52,"パルプ・紙":707.83,"化学":3165.54,"医薬品":4121.28,"石油・石炭製品":3012.53,"ゴム製品":6419.48,"ガラス・土石製品":2268.27,"鉄鋼":854.32,"非鉄金属":6008.1,"金属製品":2030.24,"機械":4822.8,"電気機器":8525.54,"輸送用機器":5160.06,"精密機器":14651.21,"その他製品":6721.98,"電気・ガス業":761.06,"陸運業":2344.69,"海運業":2624.11,"空運業":245.55,"倉庫・運輸関連業":4864.13,"情報・通信業":8256.71,"卸売業":6232.63,"小売業":2340.4,"銀行業":774.57,"証券業":1020.35,"保険業":4077.4,"その他金融業":1610.53,"不動産業":2534.75,"サービス業":4618.03},"当日收益率(%)":{"水産・農林業":0.6084,"鉱業":3.8102,"建設業":2.1744,"食料品":0.5903,"繊維製品":0.944,"パルプ・紙":0.1415,"化学":0.7399,"医薬品":1.0095,"石油・石炭製品":3.6712,"ゴム製品":0.6655,"ガラス・土石製品":0.2298,"鉄鋼":3.6054,"非鉄金属":-1.1331,"金属製品":-0.1932,"機械":-0.3957,"電気機器":-0.1175,"輸送用機器":2.0707,"精密機器":0.6595,"その他製品":-0.0776,"電気・ガス業":4.2791,"陸運業":0.4851,"海運業":0.823,"空運業":0.1591,"倉庫・運輸関連業":0.5596,"情報・通信業":1.058,"卸売業":2.7998,"小売業":-0.5012,"銀行業":0.5256,"証券業":0.2466,"保険業":1.3535,"その他金融業":0.6971,"不動産業":1.3098,"サービス業":-1.9108}},{"日期":"2026-09-02","时间":"15:30:00","行业指数值":{"水産・農林業":761.96,"鉱業":1187.74,"建設業":2598.34,"食料品":2947.39,"繊維製品":994.12,"パルプ・紙":691.82,"化学":3088.34,"医薬品":4092.46,"石油・石炭製品":2931.66,"ゴム製品":6258.8,"ガラス・土石製品":2177.6,"鉄鋼":835.56,"非鉄金属":5705.59,"金属製品":1972.18,"機械":4678.99,"電気機器":8219.68,"輸送用機器":4984.18,"精密機器":14266.47,"その他製品":6541.11,"電気・ガス業":745.31,"陸運業":2307.09,"海運業":2616.12,"空運業":237.79,"倉庫・運輸関連業":4789.33,"情報・通信業":8010.83,"卸売業":6139.33,"小売業":2311.22,"銀行業":769.42,"証券業":998.18,"保険業":4044.93,"その他金融業":1585.71,"不動産業":2479.14,"サービス業":4426.4},"当日收益率(%)":{"水産・農林業":-0.0498,"鉱業":-2.2541,"建設業":-2.2872,"食料品":-0.944,"繊維製品":-3.0619,"パルプ・紙":-2.2618,"化学":-2.4388,"医薬品":-0.6993,"石油・石炭製品":-2.6845,"ゴム製品":-2.503,"ガラス・土石製品":-3.9973,"鉄鋼":-2.1959,"非鉄金属":-5.035,"金属製品":-2.8598,"機械":-2.9819,"電気機器":-3.5876,"輸送用機器":-3.4085,"精密機器":-2.626,"その他製品":-2.6907,"電気・ガス業":-2.0695,"陸運業":-1.6036,"海運業":-0.3045,"空運業":-3.1603,"倉庫・運輸関連業":-1.5378,"情報・通信業":-2.9779,"卸売業":-1.497,"小売業":-1.2468,"銀行業":-0.6649,"証券業":-2.1728,"保険業":-0.7963,"その他金融業":-1.5411,"不動産業":-2.1939,"サービス業":-4.1496}},{"日期":"2026-09-03","时间":"15:30:00","行业指数值":{"水産・農林業":759.99,"鉱業":1149.07,"建設業":2609.25,"食料品":2926.9,"繊維製品":997.58,"パルプ・紙":689.15,"化学":3086.79,"医薬品":4120.44,"石油・石炭製品":2992.15,"ゴム製品":6223.49,"ガラス・土石製品":2169.49,"鉄鋼":848.81,"非鉄金属":5588.44,"金属製品":1979.45,"機械":4729.15,"電気機器":8203.1,"輸送用機器":4984.91,"精密機器":14225.88,"その他製品":6560.95,"電気・ガス業":763.52,"陸運業":2307.01,"海運業":2675.74,"空運業":240.39,"倉庫・運輸関連業":4805.48,"情報・通信業":8020.35,"卸売業":6290.51,"小売業":2302.86,"銀行業":780.35,"証券業":1012.41,"保険業":4114.45,"その他金融業":1596.97,"不動産業":2462.15,"サービス業":4454.56},"当日收益率(%)":{"水産・農林業":-0.2585,"鉱業":-3.2558,"建設業":0.4199,"食料品":-0.6952,"繊維製品":0.348,"パルプ・紙":-0.3859,"化学":-0.0502,"医薬品":0.6837,"石油・石炭製品":2.0633,"ゴム製品":-0.5642,"ガラス・土石製品":-0.3724,"鉄鋼":1.5858,"非鉄金属":-2.0532,"金属製品":0.3686,"機械":1.072,"電気機器":-0.2017,"輸送用機器":0.0146,"精密機器":-0.2845,"その他製品":0.3033,"電気・ガス業":2.4433,"陸運業":-0.0035,"海運業":2.2789,"空運業":1.0934,"倉庫・運輸関連業":0.3372,"情報・通信業":0.1188,"卸売業":2.4625,"小売業":-0.3617,"銀行業":1.4206,"証券業":1.4256,"保険業":1.7187,"その他金融業":0.7101,"不動産業":-0.6853,"サービス業":0.6362}},{"日期":"2026-09-04","时间":"15:30:00","行业指数值":{"水産・農林業":742.11,"鉱業":1116.6,"建設業":2593.14,"食料品":2896.93,"繊維製品":982.84,"パルプ・紙":686.68,"化学":3051.66,"医薬品":4031.87,"石油・石炭製品":2940.55,"ゴム製品":6104.83,"ガラス・土石製品":2181.32,"鉄鋼":834.7,"非鉄金属":5678.52,"金属製品":1988.85,"機械":4719.75,"電気機器":8284.55,"輸送用機器":4931.64,"精密機器":14077.41,"その他製品":6567.9,"電気・ガス業":745.55,"陸運業":2298.0,"海運業":2612.16,"空運業":243.09,"倉庫・運輸関連業":4798.85,"情報・通信業":8305.34,"卸売業":6164.19,"小売業":2324.26,"銀行業":782.47,"証券業":1033.85,"保険業":4119.75,"その他金融業":1589.31,"不動産業":2455.54,"サービス業":4432.92},"当日收益率(%)":{"水産・農林業":-2.3527,"鉱業":-2.8258,"建設業":-0.6174,"食料品":-1.024,"繊維製品":-1.4776,"パルプ・紙":-0.3584,"化学":-1.1381,"医薬品":-2.1495,"石油・石炭製品":-1.7245,"ゴム製品":-1.9066,"ガラス・土石製品":0.5453,"鉄鋼":-1.6623,"非鉄金属":1.6119,"金属製品":0.4749,"機械":-0.1988,"電気機器":0.9929,"輸送用機器":-1.0686,"精密機器":-1.0437,"その他製品":0.1059,"電気・ガス業":-2.3536,"陸運業":-0.3905,"海運業":-2.3762,"空運業":1.1232,"倉庫・運輸関連業":-0.138,"情報・通信業":3.5533,"卸売業":-2.0081,"小売業":0.9293,"銀行業":0.2717,"証券業":2.1177,"保険業":0.1288,"その他金融業":-0.4797,"不動産業":-0.2685,"サービス業":-0.4858}},{"日期":"2026-09-07","时间":"15:30:00","行业指数值":{"水産・農林業":732.01,"鉱業":1120.87,"建設業":2609.48,"食料品":2873.73,"繊維製品":986.38,"パルプ・紙":683.21,"化学":3059.75,"医薬品":3980.61,"石油・石炭製品":2991.42,"ゴム製品":6074.3,"ガラス・土石製品":2235.6,"鉄鋼":845.22,"非鉄金属":5792.87,"金属製品":2007.37,"機械":4807.2,"電気機器":8461.78,"輸送用機器":4945.54,"精密機器":14043.7,"その他製品":6501.2,"電気・ガス業":753.98,"陸運業":2281.11,"海運業":2692.1,"空運業":242.12,"倉庫・運輸関連業":4810.27,"情報・通信業":8466.07,"卸売業":6266.42,"小売業":2301.68,"銀行業":773.32,"証券業":1028.53,"保険業":4080.53,"その他金融業":1582.45,"不動産業":2430.8,"サービス業":4386.19},"当日收益率(%)":{"水産・農林業":-1.361,"鉱業":0.3824,"建設業":0.6301,"食料品":-0.8008,"繊維製品":0.3602,"パルプ・紙":-0.5053,"化学":0.2651,"医薬品":-1.2714,"石油・石炭製品":1.7299,"ゴム製品":-0.5001,"ガラス・土石製品":2.4884,"鉄鋼":1.2603,"非鉄金属":2.0137,"金属製品":0.9312,"機械":1.8529,"電気機器":2.1393,"輸送用機器":0.2819,"精密機器":-0.2395,"その他製品":-1.0155,"電気・ガス業":1.1307,"陸運業":-0.735,"海運業":3.0603,"空運業":-0.399,"倉庫・運輸関連業":0.238,"情報・通信業":1.9353,"卸売業":1.6584,"小売業":-0.9715,"銀行業":-1.1694,"証券業":-0.5146,"保険業":-0.952,"その他金融業":-0.4316,"不動産業":-1.0075,"サービス業":-1.0542}},{"日期":"2026-09-08","时间":"15:30:00","行业指数值":{"水産・農林業":732.48,"鉱業":1132.94,"建設業":2611.61,"食料品":2860.0,"繊維製品":959.08,"パルプ・紙":676.48,"化学":2979.93,"医薬品":3972.82,"石油・石炭製品":3048.55,"ゴム製品":5859.92,"ガラス・土石製品":2136.45,"鉄鋼":821.99,"非鉄金属":5602.56,"金属製品":1943.67,"機械":4631.58,"電気機器":8131.47,"輸送用機器":4740.83,"精密機器":13533.15,"その他製品":6425.27,"電気・ガス業":752.19,"陸運業":2294.95,"海運業":2665.11,"空運業":242.62,"倉庫・運輸関連業":4784.21,"情報・通信業":8652.28,"卸売業":6212.99,"小売業":2310.28,"銀行業":761.86,"証券業":1020.62,"保険業":4028.09,"その他金融業":1553.56,"不動産業":2436.35,"サービス業":4319.15},"当日收益率(%)":{"水産・農林業":0.0642,"鉱業":1.0768,"建設業":0.0816,"食料品":-0.4778,"繊維製品":-2.7677,"パルプ・紙":-0.9851,"化学":-2.6087,"医薬品":-0.1957,"石油・石炭製品":1.9098,"ゴム製品":-3.5293,"ガラス・土石製品":-4.4351,"鉄鋼":-2.7484,"非鉄金属":-3.2852,"金属製品":-3.1733,"機械":-3.6533,"電気機器":-3.9036,"輸送用機器":-4.1393,"精密機器":-3.6354,"その他製品":-1.1679,"電気・ガス業":-0.2374,"陸運業":0.6067,"海運業":-1.0026,"空運業":0.2065,"倉庫・運輸関連業":-0.5418,"情報・通信業":2.1995,"卸売業":-0.8526,"小売業":0.3736,"銀行業":-1.4819,"証券業":-0.7691,"保険業":-1.2851,"その他金融業":-1.8257,"不動産業":0.2283,"サービス業":-1.5284}},{"日期":"2026-09-09","时间":"15:30:00","行业指数值":{"水産・農林業":725.03,"鉱業":1157.48,"建設業":2643.87,"食料品":2837.36,"繊維製品":964.28,"パルプ・紙":676.17,"化学":2999.92,"医薬品":3903.07,"石油・石炭製品":3201.15,"ゴム製品":5835.72,"ガラス・土石製品":2175.21,"鉄鋼":824.39,"非鉄金属":5988.01,"金属製品":1948.12,"機械":4707.95,"電気機器":8124.28,"輸送用機器":4757.44,"精密機器":13399.61,"その他製品":6331.29,"電気・ガス業":767.11,"陸運業":2297.16,"海運業":2629.71,"空運業":240.49,"倉庫・運輸関連業":4776.31,"情報・通信業":8702.83,"卸売業":6278.41,"小売業":2267.59,"銀行業":748.72,"証券業":997.03,"保険業":3954.22,"その他金融業":1547.12,"不動産業":2443.89,"サービス業":4238.69},"当日收益率(%)":{"水産・農林業":-1.0171,"鉱業":2.166,"建設業":1.2353,"食料品":-0.7916,"繊維製品":0.5422,"パルプ・紙":-0.0458,"化学":0.6708,"医薬品":-1.7557,"石油・石炭製品":5.0057,"ゴム製品":-0.413,"ガラス・土石製品":1.8142,"鉄鋼":0.292,"非鉄金属":6.8799,"金属製品":0.2289,"機械":1.6489,"電気機器":-0.0884,"輸送用機器":0.3504,"精密機器":-0.9868,"その他製品":-1.4627,"電気・ガス業":1.9835,"陸運業":0.0963,"海運業":-1.3283,"空運業":-0.8779,"倉庫・運輸関連業":-0.1651,"情報・通信業":0.5842,"卸売業":1.053,"小売業":-1.8478,"銀行業":-1.7247,"証券業":-2.3113,"保険業":-1.8339,"その他金融業":-0.4145,"不動産業":0.3095,"サービス業":-1.8629}},{"日期":"2026-09-10","时间":"15:30:00","行业指数值":{"水産・農林業":726.8,"鉱業":1146.04,"建設業":2582.25,"食料品":2830.35,"繊維製品":965.74,"パルプ・紙":676.37,"化学":3003.42,"医薬品":3892.66,"石油・石炭製品":3219.27,"ゴム製品":5860.03,"ガラス・土石製品":2147.4,"鉄鋼":832.13,"非鉄金属":5770.6,"金属製品":1931.25,"機械":4645.75,"電気機器":8185.7,"輸送用機器":4778.18,"精密機器":13334.27,"その他製品":6153.1,"電気・ガス業":761.17,"陸運業":2293.88,"海運業":2614.59,"空運業":241.1,"倉庫・運輸関連業":4766.99,"情報・通信業":8762.45,"卸売業":6213.81,"小売業":2251.9,"銀行業":763.35,"証券業":1021.42,"保険業":4001.48,"その他金融業":1560.58,"不動産業":2416.3,"サービス業":4329.52},"当日收益率(%)":{"水産・農林業":0.2441,"鉱業":-0.9884,"建設業":-2.3307,"食料品":-0.2471,"繊維製品":0.1514,"パルプ・紙":0.0296,"化学":0.1167,"医薬品":-0.2667,"石油・石炭製品":0.566,"ゴム製品":0.4166,"ガラス・土石製品":-1.2785,"鉄鋼":0.9389,"非鉄金属":-3.6308,"金属製品":-0.866,"機械":-1.3212,"電気機器":0.756,"輸送用機器":0.4359,"精密機器":-0.4876,"その他製品":-2.8144,"電気・ガス業":-0.7743,"陸運業":-0.1428,"海運業":-0.575,"空運業":0.2536,"倉庫・運輸関連業":-0.1951,"情報・通信業":0.6851,"卸売業":-1.0289,"小売業":-0.6919,"銀行業":1.954,"証券業":2.4463,"保険業":1.1952,"その他金融業":0.87,"不動産業":-1.1289,"サービス業":2.1429}},{"日期":"2026-09-11","时间":"15:30:00","行业指数值":{"水産・農林業":724.58,"鉱業":1156.01,"建設業":2555.15,"食料品":2829.88,"繊維製品":965.09,"パルプ・紙":676.56,"化学":2967.07,"医薬品":3898.19,"石油・石炭製品":3169.57,"ゴム製品":5861.45,"ガラス・土石製品":2129.9,"鉄鋼":827.54,"非鉄金属":5567.49,"金属製品":1908.18,"機械":4592.51,"電気機器":8019.71,"輸送用機器":4832.5,"精密機器":13192.06,"その他製品":6159.22,"電気・ガス業":760.82,"陸運業":2287.76,"海運業":2647.96,"空運業":238.81,"倉庫・運輸関連業":4770.22,"情報・通信業":8674.16,"卸売業":6226.84,"小売業":2236.11,"銀行業":764.83,"証券業":1019.18,"保険業":4091.63,"その他金融業":1560.45,"不動産業":2405.59,"サービス業":4273.87},"当日收益率(%)":{"水産・農林業":-0.3054,"鉱業":0.87,"建設業":-1.0495,"食料品":-0.0166,"繊維製品":-0.0673,"パルプ・紙":0.0281,"化学":-1.2103,"医薬品":0.1421,"石油・石炭製品":-1.5438,"ゴム製品":0.0242,"ガラス・土石製品":-0.8149,"鉄鋼":-0.5516,"非鉄金属":-3.5197,"金属製品":-1.1946,"機械":-1.146,"電気機器":-2.0278,"輸送用機器":1.1368,"精密機器":-1.0665,"その他製品":0.0995,"電気・ガス業":-0.046,"陸運業":-0.2668,"海運業":1.2763,"空運業":-0.9498,"倉庫・運輸関連業":0.0678,"情報・通信業":-1.0076,"卸売業":0.2097,"小売業":-0.7012,"銀行業":0.1939,"証券業":-0.2193,"保険業":2.2529,"その他金融業":-0.0083,"不動産業":-0.4432,"サービス業":-1.2854}},{"日期":"2026-09-14","时间":"15:30:00","行业指数值":{"水産・農林業":737.37,"鉱業":1169.14,"建設業":2583.33,"食料品":2856.08,"繊維製品":968.4,"パルプ・紙":681.32,"化学":2972.03,"医薬品":3943.43,"石油・石炭製品":3163.52,"ゴム製品":5817.38,"ガラス・土石製品":2124.27,"鉄鋼":828.15,"非鉄金属":5436.46,"金属製品":1904.18,"機械":4612.2,"電気機器":8062.96,"輸送用機器":4838.53,"精密機器":13200.72,"その他製品":6284.26,"電気・ガス業":763.03,"陸運業":2327.47,"海運業":2673.3,"空運業":241.61,"倉庫・運輸関連業":4830.59,"情報・通信業":8511.71,"卸売業":6282.59,"小売業":2262.95,"銀行業":776.42,"証券業":1031.08,"保険業":4192.0,"その他金融業":1574.88,"不動産業":2430.91,"サービス業":4448.54},"当日收益率(%)":{"水産・農林業":1.7652,"鉱業":1.1358,"建設業":1.1029,"食料品":0.9258,"繊維製品":0.343,"パルプ・紙":0.7036,"化学":0.1672,"医薬品":1.1605,"石油・石炭製品":-0.1909,"ゴム製品":-0.7519,"ガラス・土石製品":-0.2643,"鉄鋼":0.0737,"非鉄金属":-2.3535,"金属製品":-0.2096,"機械":0.4287,"電気機器":0.5393,"輸送用機器":0.1248,"精密機器":0.0656,"その他製品":2.0301,"電気・ガス業":0.2905,"陸運業":1.7358,"海運業":0.957,"空運業":1.1725,"倉庫・運輸関連業":1.2656,"情報・通信業":-1.8728,"卸売業":0.8953,"小売業":1.2003,"銀行業":1.5154,"証券業":1.1676,"保険業":2.4531,"その他金融業":0.9247,"不動産業":1.0525,"サービス業":4.0869}},{"日期":"2026-09-15","时间":"15:30:00","行业指数值":{"水産・農林業":732.75,"鉱業":1157.02,"建設業":2559.85,"食料品":2846.69,"繊維製品":966.7,"パルプ・紙":683.7,"化学":2971.45,"医薬品":3987.63,"石油・石炭製品":3092.81,"ゴム製品":5819.11,"ガラス・土石製品":2134.83,"鉄鋼":823.89,"非鉄金属":5379.32,"金属製品":1908.7,"機械":4585.94,"電気機器":8025.97,"輸送用機器":4830.34,"精密機器":13160.29,"その他製品":6231.6,"電気・ガス業":756.33,"陸運業":2311.63,"海運業":2640.08,"空運業":242.35,"倉庫・運輸関連業":4818.98,"情報・通信業":8688.1,"卸売業":6192.2,"小売業":2252.08,"銀行業":762.07,"証券業":1014.59,"保険業":4129.97,"その他金融業":1563.8,"不動産業":2396.48,"サービス業":4481.44},"当日收益率(%)":{"水産・農林業":-0.6266,"鉱業":-1.0367,"建設業":-0.9089,"食料品":-0.3288,"繊維製品":-0.1755,"パルプ・紙":0.3493,"化学":-0.0195,"医薬品":1.1209,"石油・石炭製品":-2.2352,"ゴム製品":0.0297,"ガラス・土石製品":0.4971,"鉄鋼":-0.5144,"非鉄金属":-1.0511,"金属製品":0.2374,"機械":-0.5694,"電気機器":-0.4588,"輸送用機器":-0.1693,"精密機器":-0.3063,"その他製品":-0.838,"電気・ガス業":-0.8781,"陸運業":-0.6806,"海運業":-1.2427,"空運業":0.3063,"倉庫・運輸関連業":-0.2403,"情報・通信業":2.0723,"卸売業":-1.4387,"小売業":-0.4803,"銀行業":-1.8482,"証券業":-1.5993,"保険業":-1.4797,"その他金融業":-0.7035,"不動産業":-1.4163,"サービス業":0.7396}},{"日期":"2026-09-16","时间":"15:30:00","行业指数值":{"水産・農林業":733.09,"鉱業":1193.47,"建設業":2591.22,"食料品":2844.41,"繊維製品":986.26,"パルプ・紙":688.25,"化学":3025.3,"医薬品":3951.89,"石油・石炭製品":3235.66,"ゴム製品":5801.35,"ガラス・土石製品":2164.4,"鉄鋼":833.25,"非鉄金属":5478.88,"金属製品":1929.69,"機械":4622.6,"電気機器":8155.38,"輸送用機器":4839.01,"精密機器":13220.08,"その他製品":6209.23,"電気・ガス業":764.05,"陸運業":2305.28,"海運業":2690.72,"空運業":240.66,"倉庫・運輸関連業":4860.28,"情報・通信業":8618.21,"卸売業":6243.64,"小売業":2239.4,"銀行業":761.23,"証券業":1008.39,"保険業":4142.73,"その他金融業":1576.01,"不動産業":2414.79,"サービス業":4517.64},"当日收益率(%)":{"水産・農林業":0.0464,"鉱業":3.1503,"建設業":1.2255,"食料品":-0.0801,"繊維製品":2.0234,"パルプ・紙":0.6655,"化学":1.8122,"医薬品":-0.8963,"石油・石炭製品":4.6188,"ゴム製品":-0.3052,"ガラス・土石製品":1.3851,"鉄鋼":1.1361,"非鉄金属":1.8508,"金属製品":1.0997,"機械":0.7994,"電気機器":1.6124,"輸送用機器":0.1795,"精密機器":0.4543,"その他製品":-0.359,"電気・ガス業":1.0207,"陸運業":-0.2747,"海運業":1.9181,"空運業":-0.6973,"倉庫・運輸関連業":0.857,"情報・通信業":-0.8044,"卸売業":0.8307,"小売業":-0.563,"銀行業":-0.1102,"証券業":-0.6111,"保険業":0.309,"その他金融業":0.7808,"不動産業":0.764,"サービス業":0.8078}},{"日期":"2026-09-17","时间":"15:30:00","行业指数值":{"水産・農林業":743.22,"鉱業":1156.05,"建設業":2636.63,"食料品":2892.16,"繊維製品":995.64,"パルプ・紙":697.44,"化学":3035.82,"医薬品":4055.01,"石油・石炭製品":3214.66,"ゴム製品":5916.65,"ガラス・土石製品":2176.0,"鉄鋼":852.07,"非鉄金属":5418.64,"金属製品":1933.48,"機械":4669.63,"電気機器":8125.37,"輸送用機器":4889.54,"精密機器":13393.0,"その他製品":6387.88,"電気・ガス業":773.41,"陸運業":2336.3,"海運業":2773.95,"空運業":245.7,"倉庫・運輸関連業":4905.96,"情報・通信業":8726.22,"卸売業":6333.97,"小売業":2255.33,"銀行業":763.36,"証券業":998.04,"保険業":4230.35,"その他金融業":1592.3,"不動産業":2461.19,"サービス業":4590.38},"当日收益率(%)":{"水産・農林業":1.3818,"鉱業":-3.1354,"建設業":1.7525,"食料品":1.6787,"繊維製品":0.9511,"パルプ・紙":1.3353,"化学":0.3477,"医薬品":2.6094,"石油・石炭製品":-0.649,"ゴム製品":1.9875,"ガラス・土石製品":0.5359,"鉄鋼":2.2586,"非鉄金属":-1.0995,"金属製品":0.1964,"機械":1.0174,"電気機器":-0.368,"輸送用機器":1.0442,"精密機器":1.308,"その他製品":2.8772,"電気・ガス業":1.2251,"陸運業":1.3456,"海運業":3.0932,"空運業":2.0942,"倉庫・運輸関連業":0.9399,"情報・通信業":1.2533,"卸売業":1.4468,"小売業":0.7114,"銀行業":0.2798,"証券業":-1.0264,"保険業":2.115,"その他金融業":1.0336,"不動産業":1.9215,"サービス業":1.6101}},{"日期":"2026-09-18","时间":"15:30:00","行业指数值":{"水産・農林業":730.09,"鉱業":1154.28,"建設業":2610.8,"食料品":2855.0,"繊維製品":982.45,"パルプ・紙":690.79,"化学":3035.26,"医薬品":4057.91,"石油・石炭製品":3154.09,"ゴム製品":5841.99,"ガラス・土石製品":2189.07,"鉄鋼":844.73,"非鉄金属":5542.61,"金属製品":1945.89,"機械":4686.77,"電気機器":8286.04,"輸送用機器":4857.34,"精密機器":13358.95,"その他製品":6320.41,"電気・ガス業":756.08,"陸運業":2304.12,"海運業":2726.37,"空運業":244.59,"倉庫・運輸関連業":4836.99,"情報・通信業":8692.64,"卸売業":6248.7,"小売業":2237.21,"銀行業":759.27,"証券業":998.27,"保険業":4182.15,"その他金融業":1575.51,"不動産業":2424.99,"サービス業":4562.29},"当日收益率(%)":{"水産・農林業":-13.13,"鉱業":-1.77,"建設業":-25.83,"食料品":-37.16,"繊維製品":-13.19,"パルプ・紙":-6.65,"化学":-0.56,"医薬品":2.9,"石油・石炭製品":-60.57,"ゴム製品":-74.66,"ガラス・土石製品":13.07,"鉄鋼":-7.34,"非鉄金属":123.97,"金属製品":12.41,"機械":17.14,"電気機器":160.67,"輸送用機器":-32.2,"精密機器":-34.05,"その他製品":-67.47,"電気・ガス業":-17.33,"陸運業":-32.18,"海運業":-47.58,"空運業":-1.11,"倉庫・運輸関連業":-68.97,"情報・通信業":-33.58,"卸売業":-85.27,"小売業":-18.12,"銀行業":-4.09,"証券業":0.23,"保険業":-48.2,"その他金融業":-16.79,"不動産業":-36.2,"サービス業":-28.09}}],"industries":["水産・農林業","鉱業","建設業","食料品","繊維製品","パルプ・紙","化学","医薬品","石油・石炭製品","ゴム製品","ガラス・土石製品","鉄鋼","非鉄金属","金属製品","機械","電気機器","輸送用機器","精密機器","その他製品","電気・ガス業","陸運業","海運業","空運業","倉庫・運輸関連業","情報・通信業","卸売業","小売業","銀行業","証券業","保険業","その他金融業","不動産業","サービス業"],"updated_at":"2026-09-19T23:14:18+09:00","source":{"page":"https://nikkei225jp.com/chart/gyoushu.php","current":"https://nikkei225jp.com/_data/_nfsDATA/min/country_jp_gyo.js","past":"https://nikkei225jp.com/_data/_nfsDATA/min/country_jp_gyo_past.js?59660908"}}
-</script>
-
+  <script id="embedded-data" type="application/json">
+{
+  "summary": [],
+  "rep": [],
+  "act": [],
+  "detail": [],
+  "history": {},
+  "meta": {
+    "market": "日本",
+    "classification": "东证33",
+    "generated_at": null
+  }
+}
+  </script>
 
   <script>
-  (() => {
-
-    "use strict";
-
-
     const INDUSTRY_LABELS = {
-
       "水産・農林業":"水产与农林",
       "鉱業":"矿业",
-      "建設業":"建筑业",
+      "建設業":"建筑",
       "食料品":"食品",
-      "繊維製品":"纺织品",
-      "パルプ・紙":"纸浆与纸",
+      "繊維製品":"纺织制品",
+      "パルプ・紙":"纸浆与造纸",
       "化学":"化学",
-      "医薬品":"医药品",
+      "医薬品":"医药",
       "石油・石炭製品":"石油与煤炭制品",
       "ゴム製品":"橡胶制品",
       "ガラス・土石製品":"玻璃与土石制品",
@@ -713,1487 +430,600 @@
       "機械":"机械",
       "電気機器":"电气设备",
       "輸送用機器":"运输设备",
-      "精密機器":"精密仪器",
+      "精密機器":"精密设备",
       "その他製品":"其他制品",
       "電気・ガス業":"电力与燃气",
       "陸運業":"陆运",
       "海運業":"海运",
       "空運業":"空运",
-      "倉庫・運輸関連業":"仓储与运输相关",
+      "倉庫・運輸関連業":"仓储与运输配套",
       "情報・通信業":"信息与通信",
-      "卸売業":"批发",
+      "卸売業":"批发贸易",
       "小売業":"零售",
       "銀行業":"银行",
-      "証券業":"证券与商品期货",
+      "証券、商品先物取引業":"证券与商品期货",
       "保険業":"保险",
       "その他金融業":"其他金融",
       "不動産業":"房地产",
-      "サービス業":"服务业"
-
+      "サービス業":"服务"
     };
 
-
-    const FIELD_NAMES = {
-
-      date:[
-        "日期",
-        "交易日期",
-        "观测日期",
-        "date"
-      ],
-
-      time:[
-        "时间",
-        "更新时间",
-        "time"
-      ],
-
-      market:[
-        "市场",
-        "市場",
-        "market"
-      ],
-
-      taxonomy:[
-        "分类体系",
-        "分類体系",
-        "taxonomy"
-      ],
-
-      industry:[
-        "一级行业",
-        "行业",
-        "行业名称",
-        "業種",
-        "industry",
-        "sector"
-      ],
-
-      indexValue:[
-        "行业指数值",
-        "指数值",
-        "index_value",
-        "indexValue"
-      ],
-
-      today:[
-        "行业指数涨跌幅(%)",
-        "行业指数涨跌幅",
-        "涨跌幅(%)",
-        "涨跌幅",
-        "daily_return"
-      ],
-
-      average:[
-        "33行业当日平均涨跌幅(%)",
-        "33行业当日平均涨跌幅",
-        "market_average"
-      ],
-
-      rs:[
-        "当日相对强度(%)",
-        "当日相对强度",
-        "relative_strength",
-        "rs"
-      ],
-
-      return5:[
-        "5日收益率(%)",
-        "5日收益率",
-        "return_5d"
-      ],
-
-      return20:[
-        "20日收益率(%)",
-        "20日收益率",
-        "return_20d"
-      ],
-
-      rank:[
-        "当日强弱排名",
-        "当日排名",
-        "daily_rank",
-        "rank"
-      ],
-
-      rankChange:[
-        "排名变化",
-        "rank_change"
-      ],
-
-      strongDays:[
-        "连续强势天数",
-        "strong_streak"
-      ],
-
-      weakDays:[
-        "连续弱势天数",
-        "weak_streak"
-      ],
-
-      rotation:[
-        "轮动状态",
-        "rotation_status"
-      ]
-
+    const GROUPS = {
+      "食品与消费":["食品","零售","服务","其他制品","水产与农林"],
+      "制造与设备":["橡胶制品","机械","精密设备","运输设备","电气设备"],
+      "公用与运输":["仓储与运输配套","海运","空运","陆运","电力与燃气"],
+      "资源与材料":["有色金属","化学","矿业","钢铁","纸浆与造纸","纺织制品","石油与煤炭制品"],
+      "建筑与地产":["金属制品","玻璃与土石制品","建筑","房地产"],
+      "医药与通信":["医药","信息与通信"],
+      "金融与商社":["银行","其他金融","保险","批发贸易","证券与商品期货"]
     };
 
-
-    const state = {
-
-      rows:[],
-      query:"",
-      sortKey:"rank",
-      sortDirection:"asc",
-      latestDate:"",
-      latestTime:""
-
+    const FLOW_CLASS = {
+      "资金流入":"flow-in",
+      "资金回流":"flow-in",
+      "资金流出":"flow-out",
+      "观望分化":"flow-wait",
+      "观望":"flow-wait"
     };
 
-
-    const elements = {
-
-      content:document.getElementById("japan-content"),
-      empty:document.getElementById("japan-empty"),
-      tbody:document.getElementById("industry-table-body"),
-      search:document.getElementById("industry-search"),
-      rowCount:document.getElementById("row-count"),
-
-      date:document.getElementById("summary-date"),
-      coverage:document.getElementById("summary-coverage"),
-      average:document.getElementById("summary-average"),
-
-      strong:document.getElementById("summary-strong"),
-      weak:document.getElementById("summary-weak"),
-
-      bestName:document.getElementById("summary-best-name"),
-      bestValue:document.getElementById("summary-best-value"),
-
-      worstName:document.getElementById("summary-worst-name"),
-      worstValue:document.getElementById("summary-worst-value")
-
-    };
-
-
-    function normalizeKey(value){
-
-      return String(value ?? "")
-        .normalize("NFKC")
-        .trim()
-        .toLowerCase()
-        .replace(/\(\s*%\s*\)/g,"")
-        .replace(/[％%]/g,"")
-        .replace(/[\s_-]+/g,"");
-
+    function safeParseEmbeddedData() {
+      const el = document.getElementById("embedded-data");
+      if (!el) return {};
+      const text = el.textContent.trim();
+      if (!text) return {};
+      try {
+        return JSON.parse(text);
+      } catch (e) {
+        console.error("embedded-data 解析失败", e);
+        return {};
+      }
     }
 
+    const RAW_DATA = safeParseEmbeddedData();
+    const RAW_SUMMARY = Array.isArray(RAW_DATA.summary) ? RAW_DATA.summary : [];
+    const RAW_DETAIL = Array.isArray(RAW_DATA.detail) ? RAW_DATA.detail : [];
+    const RAW_REP = Array.isArray(RAW_DATA.rep) ? RAW_DATA.rep : [];
+    const RAW_ACT = Array.isArray(RAW_DATA.act) ? RAW_DATA.act : [];
 
-    function getField(record,candidates){
-
-      if(!record || typeof record!=="object"){
-        return null;
-      }
-
-      for(const candidate of candidates){
-
-        if(
-          Object.prototype.hasOwnProperty.call(record,candidate) &&
-          record[candidate]!==undefined &&
-          record[candidate]!==null &&
-          record[candidate]!==""
-        ){
-          return record[candidate];
-        }
-
-      }
-
-      const normalizedCandidates =
-        new Set(candidates.map(normalizeKey));
-
-      for(const [key,value] of Object.entries(record)){
-
-        if(
-          normalizedCandidates.has(normalizeKey(key)) &&
-          value!==undefined &&
-          value!==null &&
-          value!==""
-        ){
-          return value;
-        }
-
-      }
-
-      return null;
-
+    function num(v) {
+      if (v === null || v === undefined || v === "") return null;
+      const n = Number(v);
+      return Number.isFinite(n) ? n : null;
     }
 
-
-    function toNumber(value){
-
-      if(typeof value==="number"){
-        return Number.isFinite(value) ? value : null;
-      }
-
-      if(value===null || value===undefined){
-        return null;
-      }
-
-      let text=String(value)
-        .normalize("NFKC")
-        .trim()
-        .replace(/[,\s]/g,"")
-        .replace(/[％%]/g,"")
-        .replace(/−/g,"-");
-
-      if(
-        text==="" ||
-        /^(?:—|–|-|--|n\/a|na|null|none|nan)$/i.test(text)
-      ){
-        return null;
-      }
-
-      const parsed=Number(text);
-
-      return Number.isFinite(parsed)
-        ? parsed
-        : null;
-
+    function fmtPct(v) {
+      if (v === null || v === undefined || !Number.isFinite(v)) return "—";
+      return (v >= 0 ? "+" : "") + v.toFixed(2) + "%";
     }
 
-
-    function cleanText(value){
-
-      if(value===null || value===undefined){
-        return "";
-      }
-
-      const text=String(value).trim();
-
-      if(
-        !text ||
-        /^(?:—|–|-|--|n\/a|na|null|none|nan)$/i.test(text)
-      ){
-        return "";
-      }
-
-      return text;
-
+    function fmtNum(v, digits = 2) {
+      if (v === null || v === undefined || !Number.isFinite(v)) return "—";
+      return new Intl.NumberFormat("zh-CN", {
+        minimumFractionDigits: digits,
+        maximumFractionDigits: digits
+      }).format(v);
     }
 
-
-    function canonicalIndustry(value){
-
-      let name=cleanText(value)
-        .normalize("NFKC")
-        .replace(/\s+/g,"");
-
-      if(!name){
-        return "";
-      }
-
-      if(
-        name==="証券業" ||
-        name==="证券业" ||
-        name==="证券与商品期货" ||
-        name==="證券與商品期貨" ||
-        name==="証券、商品先物取引業"
-      ){
-        return "証券業";
-      }
-
-      return name;
-
+    function clsByVal(v) {
+      if (v === null || v === undefined || !Number.isFinite(v)) return "flat";
+      if (v > 0) return "up";
+      if (v < 0) return "down";
+      return "flat";
     }
 
-
-    function industryDisplayName(name){
-
-      return INDUSTRY_LABELS[name] || name || "—";
-
+    function rotationBadgeClass(text="") {
+      if (text.includes("领涨") || text.includes("转强")) return "red";
+      if (text.includes("弱势") || text.includes("下行")) return "green";
+      return "orange";
     }
 
-
-    function isJapanRecord(record){
-
-      const industry=
-        getField(record,FIELD_NAMES.industry);
-
-      if(!cleanText(industry)){
-        return false;
-      }
-
-      const market=
-        cleanText(getField(record,FIELD_NAMES.market));
-
-      const taxonomy=
-        cleanText(getField(record,FIELD_NAMES.taxonomy));
-
-      if(market){
-        return /日本|japan|jp/i.test(market);
-      }
-
-      if(taxonomy){
-        return /东证|東証|topix\s*33/i.test(taxonomy);
-      }
-
-      return true;
-
-    }
-
-
-    function dateKey(value){
-
-      const text=
-        cleanText(value).normalize("NFKC");
-
-      if(!text){
-        return "";
-      }
-
-      const match=text.match(
-        /(\d{4})[年./-](\d{1,2})[月./-](\d{1,2})/
-      );
-
-      if(match){
-
-        return [
-          match[1],
-          match[2].padStart(2,"0"),
-          match[3].padStart(2,"0")
-        ].join("");
-
-      }
-
-      return text.replace(/[^\d]/g,"");
-
-    }
-
-
-    function displayDate(value){
-
-      const text=
-        cleanText(value).normalize("NFKC");
-
-      if(!text){
-        return "—";
-      }
-
-      const match=text.match(
-        /(\d{4})[年./-](\d{1,2})[月./-](\d{1,2})/
-      );
-
-      if(!match){
-        return text;
-      }
-
-      return [
-        match[1],
-        match[2].padStart(2,"0"),
-        match[3].padStart(2,"0")
-      ].join("-");
-
-    }
-
-
-    function parseEmbeddedData(){
-
-      const script=
-        document.getElementById("embedded-data");
-
-      if(!script){
-        return {rows:[],error:true};
-      }
-
-      try{
-
-        const parsed=
-          JSON.parse(script.textContent.trim() || "{}");
-
-        const summary=
-          Array.isArray(parsed.summary)
-            ? parsed.summary
-            : [];
-
-        const japanRecords=
-          summary.filter(isJapanRecord);
-
-        if(!japanRecords.length){
-          return {rows:[],error:false};
-        }
-
-        let latest="";
-
-        japanRecords.forEach(record=>{
-
-          const key=
-            dateKey(getField(record,FIELD_NAMES.date));
-
-          if(key>latest){
-            latest=key;
-          }
-
-        });
-
-        const latestRecords=
-          japanRecords.filter(record=>
-            dateKey(getField(record,FIELD_NAMES.date))===latest
-          );
-
-
-        const map=new Map();
-
-
-        latestRecords.forEach(record=>{
-
-          const canonical=
-            canonicalIndustry(
-              getField(record,FIELD_NAMES.industry)
-            );
-
-          if(!canonical){
-            return;
-          }
-
-
-          const strongDays=
-            toNumber(
-              getField(record,FIELD_NAMES.strongDays)
-            );
-
-          const weakDays=
-            toNumber(
-              getField(record,FIELD_NAMES.weakDays)
-            );
-
-
-          const row={
-
-            canonical,
-            industry:industryDisplayName(canonical),
-
-            date:cleanText(
-              getField(record,FIELD_NAMES.date)
-            ),
-
-            time:cleanText(
-              getField(record,FIELD_NAMES.time)
-            ),
-
-            indexValue:
-              toNumber(
-                getField(record,FIELD_NAMES.indexValue)
-              ),
-
-            today:
-              toNumber(
-                getField(record,FIELD_NAMES.today)
-              ),
-
-            average:
-              toNumber(
-                getField(record,FIELD_NAMES.average)
-              ),
-
-            rs:
-              toNumber(
-                getField(record,FIELD_NAMES.rs)
-              ),
-
-            return5:
-              toNumber(
-                getField(record,FIELD_NAMES.return5)
-              ),
-
-            return20:
-              toNumber(
-                getField(record,FIELD_NAMES.return20)
-              ),
-
-            rank:
-              toNumber(
-                getField(record,FIELD_NAMES.rank)
-              ),
-
-            rankChange:
-              toNumber(
-                getField(record,FIELD_NAMES.rankChange)
-              ),
-
-            strongDays,
-            weakDays,
-
-            rotation:
-              cleanText(
-                getField(record,FIELD_NAMES.rotation)
-              )
-
-          };
-
-
-          if(
-            strongDays!==null &&
-            strongDays>0
-          ){
-            row.streakSort=strongDays;
-          }
-          else if(
-            weakDays!==null &&
-            weakDays>0
-          ){
-            row.streakSort=-weakDays;
-          }
-          else{
-            row.streakSort=null;
-          }
-
-
-          const existing=
-            map.get(canonical);
-
-
-          if(!existing){
-
-            map.set(canonical,row);
-
-          }
-          else{
-
-            Object.keys(row).forEach(key=>{
-
-              if(
-                (
-                  existing[key]===null ||
-                  existing[key]===undefined ||
-                  existing[key]===""
-                ) &&
-                row[key]!==null &&
-                row[key]!==undefined &&
-                row[key]!==""
-              ){
-                existing[key]=row[key];
-              }
-
-            });
-
-          }
-
-        });
-
-
-        const rows=
-          Array.from(map.values());
-
-
-        return {
-
-          rows,
-          error:false,
-
-          latestDate:
-            rows.find(row=>row.date)?.date || "",
-
-          latestTime:
-            rows.find(row=>row.time)?.time || ""
-
-        };
-
-      }
-      catch(error){
-
-        console.error(error);
-
-        return {
-          rows:[],
-          error:true
-        };
-
-      }
-
-    }
-
-
-    function formatIndex(value){
-
-      if(value===null || value===undefined){
-        return "—";
-      }
-
-      return new Intl.NumberFormat(
-        "zh-CN",
-        {
-          minimumFractionDigits:2,
-          maximumFractionDigits:2
-        }
-      ).format(value);
-
-    }
-
-
-    function formatPercent(value){
-
-      if(value===null || value===undefined){
-        return "—";
-      }
-
-      const prefix=value>0 ? "+" : "";
-
-      return prefix+value.toFixed(2)+"%";
-
-    }
-
-
-    function formatRank(value){
-
-      if(value===null || value===undefined){
-        return "—";
-      }
-
-      return String(Math.round(value));
-
-    }
-
-
-    function formatRankChange(value){
-
-      if(value===null || value===undefined){
-        return "—";
-      }
-
-      const rounded=Math.round(value);
-
-      if(rounded>0){
-        return "↑ "+rounded;
-      }
-
-      if(rounded<0){
-        return "↓ "+Math.abs(rounded);
-      }
-
-      return "→";
-
-    }
-
-
-    function valueClass(value){
-
-      if(value===null || value===undefined || value===0){
-        return "neutral";
-      }
-
-      return value>0
-        ? "up"
-        : "down";
-
-    }
-
-
-    function rotationClass(value){
-
-      const text=
-        cleanText(value);
-
-      if(
-        text==="强势延续" ||
-        text==="转强"
-      ){
-        return "badge badge-up";
-      }
-
-      if(
-        text==="弱势延续" ||
-        text==="转弱"
-      ){
-        return "badge badge-down";
-      }
-
-      return "badge badge-neutral";
-
-    }
-
-
-    function streakData(row){
-
-      if(
-        row.strongDays!==null &&
-        row.strongDays>0
-      ){
-
-        return {
-          text:"强 "+Math.round(row.strongDays)+"天",
-          className:"badge badge-up"
-        };
-
-      }
-
-      if(
-        row.weakDays!==null &&
-        row.weakDays>0
-      ){
-
-        return {
-          text:"弱 "+Math.round(row.weakDays)+"天",
-          className:"badge badge-down"
-        };
-
-      }
-
+    const SUMMARY = RAW_SUMMARY.map((row, idx) => {
+      const ja = row["一级行业"] || row["行业指数名称"] || row["industry"] || "";
+      const cn = row["行业中文名"] || INDUSTRY_LABELS[ja] || ja;
+      const pct = num(row["行业指数涨跌幅(%)"]);
+      const value = num(row["行业指数值"]);
+      const points = num(row["行业指数点数涨跌"]);
+      const rs = num(row["当日相对强度(%)"]);
+      const r5 = num(row["5日收益率(%)"]);
+      const r20 = num(row["20日收益率(%)"]);
       return {
-        text:"—",
-        className:"neutral"
+        id: ja || cn || String(idx + 1),
+        date: row["日期"] || "",
+        time: row["时间"] || "",
+        market: row["市场"] || "日本",
+        classification: row["分类体系"] || "东证33",
+        ja,
+        cn,
+        value,
+        points,
+        pct,
+        rs,
+        r5,
+        r20,
+        rotation: row["轮动状态"] || "—",
+        flow: row["资金偏向"] || "观望",
+        source: row["数据状态"] || "来源: nikkei225jp.com",
+        rankUp: num(row["上涨排名"]),
+        rankDown: num(row["下跌排名"]),
+        marketAvg: num(row["33行业当日平均涨跌幅(%)"])
+      };
+    });
+
+    let selectedIndustry = SUMMARY.length ? SUMMARY[0].id : null;
+
+    function sectionSwitch(name) {
+      document.querySelectorAll(".tab").forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.tab === name);
+      });
+      document.querySelectorAll(".section").forEach(sec => {
+        sec.classList.toggle("active", sec.id === "section-" + name);
+      });
+    }
+
+    document.querySelectorAll(".tab").forEach(btn => {
+      btn.addEventListener("click", () => sectionSwitch(btn.dataset.tab));
+    });
+
+    document.getElementById("jump-board").onclick = () => sectionSwitch("board");
+    document.getElementById("jump-rotation").onclick = () => sectionSwitch("rotation");
+    document.getElementById("jump-detail").onclick = () => sectionSwitch("detail");
+
+    function getMarketStats(rows) {
+      const valid = rows.filter(r => Number.isFinite(r.pct));
+      const count = valid.length;
+      const up = valid.filter(r => r.pct > 0).length;
+      const down = valid.filter(r => r.pct < 0).length;
+      const flat = valid.filter(r => r.pct === 0).length;
+      const avg = count ? valid.reduce((s, r) => s + r.pct, 0) / count : null;
+      const sortedUp = [...valid].sort((a, b) => b.pct - a.pct);
+      const sortedDown = [...valid].sort((a, b) => a.pct - b.pct);
+      return {
+        count, up, down, flat, avg,
+        strongest: sortedUp[0] || null,
+        weakest: sortedDown[0] || null
+      };
+    }
+
+    function buildEmptyHTML() {
+      return `
+        <div class="empty-full">
+          <div class="empty-icon">!</div>
+          <h3>暂无数据，请先运行 Actions → Daily Update</h3>
+          <p>Daily Update 完成后，页面会自动读取 embedded-data 中的真实日本市场数据。</p>
+        </div>
+      `;
+    }
+
+    function renderOverview() {
+      const wrap = document.getElementById("overview-content");
+      if (!SUMMARY.length) {
+        wrap.innerHTML = buildEmptyHTML();
+        return;
+      }
+
+      const stats = getMarketStats(SUMMARY);
+      const topUp = [...SUMMARY].filter(r => Number.isFinite(r.pct)).sort((a,b)=>b.pct-a.pct).slice(0,10);
+      const topDown = [...SUMMARY].filter(r => Number.isFinite(r.pct)).sort((a,b)=>a.pct-b.pct).slice(0,10);
+      const date = SUMMARY[0].date || "—";
+      const time = SUMMARY[0].time || "—";
+
+      wrap.innerHTML = `
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-label">行业指数覆盖</div>
+            <div class="stat-value">${stats.count}<span style="font-size:20px;color:#7d8da4"> / 33</span></div>
+            <div class="stat-sub">${stats.up} 上涨 · ${stats.down} 下跌 · ${stats.flat} 平盘</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">33行业平均涨跌</div>
+            <div class="stat-value ${clsByVal(stats.avg)}">${fmtPct(stats.avg)}</div>
+            <div class="stat-sub">观测日 ${date} · ${time}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">当日最强行业</div>
+            <div class="stat-value ${stats.strongest ? clsByVal(stats.strongest.pct) : ''}">${stats.strongest ? fmtPct(stats.strongest.pct) : "—"}</div>
+            <div class="stat-sub">${stats.strongest ? stats.strongest.cn : "—"}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">当日最弱行业</div>
+            <div class="stat-value ${stats.weakest ? clsByVal(stats.weakest.pct) : ''}">${stats.weakest ? fmtPct(stats.weakest.pct) : "—"}</div>
+            <div class="stat-sub">${stats.weakest ? stats.weakest.cn : "—"}</div>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <div class="panel-title">行业涨幅 TOP10</div>
+                <div class="panel-sub">日本市场 · 东证33行业</div>
+              </div>
+            </div>
+            <table class="mini-table">
+              <thead>
+                <tr><th>#</th><th>行业</th><th>涨跌幅</th><th>指数值</th></tr>
+              </thead>
+              <tbody>
+                ${topUp.map((r,i)=>`
+                  <tr class="clickable" data-open="${r.id}">
+                    <td><span class="rank-badge">${i+1}</span></td>
+                    <td>
+                      <div style="font-weight:800">${r.cn}</div>
+                      <div style="font-size:12px;color:#7b8ca3">${r.ja}</div>
+                    </td>
+                    <td class="${clsByVal(r.pct)}" style="font-weight:900">${fmtPct(r.pct)}</td>
+                    <td>${fmtNum(r.value)}</td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <div class="panel-title">行业跌幅 TOP10</div>
+                <div class="panel-sub">日本市场 · 东证33行业</div>
+              </div>
+            </div>
+            <table class="mini-table">
+              <thead>
+                <tr><th>#</th><th>行业</th><th>涨跌幅</th><th>指数值</th></tr>
+              </thead>
+              <tbody>
+                ${topDown.map((r,i)=>`
+                  <tr class="clickable" data-open="${r.id}">
+                    <td><span class="rank-badge">${i+1}</span></td>
+                    <td>
+                      <div style="font-weight:800">${r.cn}</div>
+                      <div style="font-size:12px;color:#7b8ca3">${r.ja}</div>
+                    </td>
+                    <td class="${clsByVal(r.pct)}" style="font-weight:900">${fmtPct(r.pct)}</td>
+                    <td>${fmtNum(r.value)}</td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+
+      bindIndustryOpeners();
+    }
+
+    function renderBoard() {
+      const wrap = document.getElementById("board-content");
+      if (!SUMMARY.length) {
+        wrap.innerHTML = buildEmptyHTML();
+        return;
+      }
+
+      const keyword = (document.getElementById("industry-search").value || "").trim().toLowerCase();
+      const filterFn = row => {
+        if (!keyword) return true;
+        return [row.cn, row.ja].some(v => String(v || "").toLowerCase().includes(keyword));
       };
 
+      const html = Object.entries(GROUPS).map(([groupName, industries]) => {
+        const rows = industries
+          .map(name => SUMMARY.find(x => x.cn === name))
+          .filter(Boolean)
+          .filter(filterFn)
+          .sort((a,b)=>(b.pct ?? -999) - (a.pct ?? -999));
+
+        if (!rows.length && keyword) return "";
+
+        const valid = rows.filter(r => Number.isFinite(r.pct));
+        const avg = valid.length ? valid.reduce((s,r)=>s+r.pct,0)/valid.length : null;
+        const up = valid.filter(r=>r.pct>0).length;
+        const down = valid.filter(r=>r.pct<0).length;
+
+        return `
+          <div class="group-card">
+            <div class="group-header">
+              <div>
+                <div class="group-name">${groupName} <span class="group-count">${rows.length}</span></div>
+                <div class="group-meta">阅读分组 · ${valid.length} 个有指数数据</div>
+              </div>
+              <div style="text-align:right">
+                <div class="group-meta">组均值 <span class="${clsByVal(avg)}" style="font-weight:900;font-size:18px">${fmtPct(avg)}</span></div>
+                <div class="group-meta">${up} 涨 / ${down} 跌</div>
+              </div>
+            </div>
+            <div class="group-body">
+              ${rows.map(r=>`
+                <div class="industry-row" data-open="${r.id}">
+                  <div class="industry-main">
+                    <div class="industry-name">${r.cn}</div>
+                    <div class="industry-ja">${r.ja}</div>
+                    <div class="industry-meta">
+                      <span class="pill blue">RS ${fmtPct(r.rs)}</span>
+                      <span class="pill ${rotationBadgeClass(r.rotation)}">${r.rotation}</span>
+                      <span class="pill">5日 ${fmtPct(r.r5)}</span>
+                      <span class="pill">20日 ${fmtPct(r.r20)}</span>
+                    </div>
+                  </div>
+                  <div class="industry-right">
+                    <div class="industry-pct ${clsByVal(r.pct)}">${fmtPct(r.pct)}</div>
+                    <div class="industry-rank">#${r.rankUp || "—"}</div>
+                  </div>
+                </div>
+              `).join("") || `<div style="padding:16px;color:#8a98ac">没有匹配结果</div>`}
+            </div>
+          </div>
+        `;
+      }).join("");
+
+      wrap.innerHTML = `
+        <div class="board-title">
+          <div>
+            <h2>行业看板</h2>
+            <small>33 / 33 个行业种</small>
+          </div>
+          <div class="legend">点击任一行业卡片，可在“行业详情”中查看更具体数据与预留的个股排行区。</div>
+        </div>
+        <div class="group-grid">${html}</div>
+      `;
+
+      bindIndustryOpeners();
     }
 
-
-    function createCell(text,className=""){
-
-      const cell=
-        document.createElement("td");
-
-      cell.textContent=text;
-
-      if(className){
-        cell.className=className;
-      }
-
-      return cell;
-
-    }
-
-
-    function createIndustryCell(row){
-
-      const cell=
-        document.createElement("td");
-
-      const main=
-        document.createElement("div");
-
-      main.className="industry-name";
-      main.textContent=row.industry;
-
-
-      const small=
-        document.createElement("small");
-
-      small.textContent=row.canonical;
-
-
-      main.appendChild(small);
-      cell.appendChild(main);
-
-      return cell;
-
-    }
-
-
-    function createBadgeCell(text,className){
-
-      const cell=
-        document.createElement("td");
-
-
-      if(text==="—"){
-
-        cell.textContent="—";
-        cell.className="neutral";
-
-        return cell;
-
-      }
-
-
-      const badge=
-        document.createElement("span");
-
-      badge.className=className;
-      badge.textContent=text;
-
-      cell.appendChild(badge);
-
-      return cell;
-
-    }
-
-
-    function getVisibleRows(){
-
-      const query=
-        state.query
-          .trim()
-          .toLocaleLowerCase("zh-CN");
-
-
-      const filtered=
-        query
-          ? state.rows.filter(row=>{
-
-              const searchable=[
-                row.industry,
-                row.canonical,
-                row.rotation
-              ]
-              .join(" ")
-              .toLocaleLowerCase("zh-CN");
-
-              return searchable.includes(query);
-
-            })
-          : [...state.rows];
-
-
-      const direction=
-        state.sortDirection==="asc"
-          ? 1
-          : -1;
-
-
-      const key=
-        state.sortKey;
-
-
-      filtered.sort((a,b)=>{
-
-        const av=a[key];
-        const bv=b[key];
-
-
-        const am=
-          av===null ||
-          av===undefined ||
-          av==="";
-
-        const bm=
-          bv===null ||
-          bv===undefined ||
-          bv==="";
-
-
-        if(am && bm){
-          return a.industry.localeCompare(
-            b.industry,
-            "zh-CN"
-          );
-        }
-
-        if(am){
-          return 1;
-        }
-
-        if(bm){
-          return -1;
-        }
-
-
-        if(
-          typeof av==="number" &&
-          typeof bv==="number"
-        ){
-
-          if(av===bv){
-
-            return a.industry.localeCompare(
-              b.industry,
-              "zh-CN"
-            );
-
-          }
-
-          return (av-bv)*direction;
-
-        }
-
-
-        return String(av)
-          .localeCompare(
-            String(bv),
-            "zh-CN",
-            {
-              numeric:true,
-              sensitivity:"base"
-            }
-          )*direction;
-
-      });
-
-
-      return filtered;
-
-    }
-
-
-    function renderTable(){
-
-      const rows=
-        getVisibleRows();
-
-
-      elements.tbody
-        .replaceChildren();
-
-
-      rows.forEach(row=>{
-
-        const tr=
-          document.createElement("tr");
-
-
-        tr.appendChild(
-          createIndustryCell(row)
-        );
-
-
-        tr.appendChild(
-          createCell(
-            formatIndex(row.indexValue)
-          )
-        );
-
-
-        tr.appendChild(
-          createCell(
-            formatPercent(row.today),
-            valueClass(row.today)
-          )
-        );
-
-
-        tr.appendChild(
-          createCell(
-            formatPercent(row.rs),
-            valueClass(row.rs)
-          )
-        );
-
-
-        tr.appendChild(
-          createCell(
-            formatPercent(row.return5),
-            valueClass(row.return5)
-          )
-        );
-
-
-        tr.appendChild(
-          createCell(
-            formatPercent(row.return20),
-            valueClass(row.return20)
-          )
-        );
-
-
-        tr.appendChild(
-          createCell(
-            formatRank(row.rank),
-            "rank-cell"
-          )
-        );
-
-
-        tr.appendChild(
-          createCell(
-            formatRankChange(row.rankChange),
-            valueClass(row.rankChange)
-          )
-        );
-
-
-        tr.appendChild(
-          createBadgeCell(
-            row.rotation || "—",
-            rotationClass(row.rotation)
-          )
-        );
-
-
-        const streak=
-          streakData(row);
-
-
-        tr.appendChild(
-          createBadgeCell(
-            streak.text,
-            streak.className
-          )
-        );
-
-
-        elements.tbody
-          .appendChild(tr);
-
-      });
-
-
-      elements.rowCount.textContent=
-        state.query
-          ? `显示 ${rows.length} / ${state.rows.length} 个行业`
-          : `共 ${state.rows.length} 个行业`;
-
-
-      updateSortIndicators();
-
-    }
-
-
-    function setMetricElement(
-      element,
-      text,
-      numericValue=null
-    ){
-
-      element.textContent=text;
-
-      element.classList.remove(
-        "up",
-        "down",
-        "neutral"
-      );
-
-
-      if(
-        numericValue===null ||
-        numericValue===undefined
-      ){
-        element.classList.add("neutral");
-      }
-      else{
-        element.classList.add(
-          valueClass(numericValue)
-        );
-      }
-
-    }
-
-
-    function renderSummary(){
-
-      const rows=
-        state.rows;
-
-
-      const dateText=
-        displayDate(
-          state.latestDate
-        );
-
-
-      const timeText=
-        cleanText(
-          state.latestTime
-        );
-
-
-      elements.date.textContent=
-        dateText==="—"
-          ? "—"
-          : timeText
-            ? `${dateText} ${timeText}`
-            : dateText;
-
-
-      elements.coverage.textContent=
-        `${rows.length} / 33`;
-
-
-      const explicitAverage=
-        rows
-        .map(row=>row.average)
-        .find(
-          value=>
-            value!==null &&
-            value!==undefined
-        );
-
-
-      const validToday=
-        rows
-        .map(row=>row.today)
-        .filter(
-          value=>
-            value!==null &&
-            value!==undefined
-        );
-
-
-      const calculatedAverage=
-        validToday.length
-          ? validToday.reduce(
-              (sum,value)=>sum+value,
-              0
-            )/validToday.length
-          : null;
-
-
-      const average=
-        explicitAverage!==undefined &&
-        explicitAverage!==null
-          ? explicitAverage
-          : calculatedAverage;
-
-
-      setMetricElement(
-        elements.average,
-        formatPercent(average),
-        average
-      );
-
-
-      const rowsWithRS=
-        rows.filter(
-          row=>
-            row.rs!==null &&
-            row.rs!==undefined
-        );
-
-
-      let strongCount=0;
-      let weakCount=0;
-
-
-      if(rowsWithRS.length){
-
-        strongCount=
-          rowsWithRS.filter(
-            row=>row.rs>0
-          ).length;
-
-        weakCount=
-          rowsWithRS.filter(
-            row=>row.rs<0
-          ).length;
-
-      }
-      else if(average!==null){
-
-        strongCount=
-          rows.filter(
-            row=>
-              row.today!==null &&
-              row.today>average
-          ).length;
-
-        weakCount=
-          rows.filter(
-            row=>
-              row.today!==null &&
-              row.today<average
-          ).length;
-
-      }
-
-
-      elements.strong.textContent=
-        "强 "+strongCount;
-
-      elements.weak.textContent=
-        "弱 "+weakCount;
-
-
-      const validPerformance=
-        rows.filter(
-          row=>
-            row.today!==null &&
-            row.today!==undefined
-        );
-
-
-      if(!validPerformance.length){
-
-        elements.bestName.textContent="—";
-        elements.worstName.textContent="—";
-
-        setMetricElement(
-          elements.bestValue,
-          "—"
-        );
-
-        setMetricElement(
-          elements.worstValue,
-          "—"
-        );
-
+    function renderRotation() {
+      const wrap = document.getElementById("rotation-content");
+      if (!SUMMARY.length) {
+        wrap.innerHTML = buildEmptyHTML();
         return;
-
       }
 
-
-      const best=
-        validPerformance.reduce(
-          (current,row)=>
-            row.today>current.today
-              ? row
-              : current
-        );
-
-
-      const worst=
-        validPerformance.reduce(
-          (current,row)=>
-            row.today<current.today
-              ? row
-              : current
-        );
-
-
-      elements.bestName.textContent=
-        best.industry;
-
-      elements.worstName.textContent=
-        worst.industry;
-
-
-      setMetricElement(
-        elements.bestValue,
-        formatPercent(best.today),
-        best.today
-      );
-
-
-      setMetricElement(
-        elements.worstValue,
-        formatPercent(worst.today),
-        worst.today
-      );
-
-    }
-
-
-    function updateSortIndicators(){
-
-      document
-        .querySelectorAll(
-          "th[data-column]"
-        )
-        .forEach(th=>{
-
-          const key=
-            th.dataset.column;
-
-          const mark=
-            th.querySelector(
-              ".sort-mark"
-            );
-
-
-          if(key===state.sortKey){
-
-            mark.textContent=
-              state.sortDirection==="asc"
-                ? "↑"
-                : "↓";
-
-          }
-          else{
-
-            mark.textContent="↕";
-
-          }
-
-        });
-
-    }
-
-
-    function showJapanEmpty(isError){
-
-      elements.content.hidden=true;
-      elements.empty.hidden=false;
-
-
-      if(isError){
-
-        const title=
-          elements.empty.querySelector("h2");
-
-        const description=
-          elements.empty.querySelector("p");
-
-
-        title.textContent=
-          "embedded-data 读取失败";
-
-        title.classList.add(
-          "data-error"
-        );
-
-
-        description.textContent=
-          "请检查 embedded-data 是否为有效 JSON，然后重新运行 Daily Update。";
-
-      }
-
-    }
-
-
-    function showJapanContent(){
-
-      elements.empty.hidden=true;
-      elements.content.hidden=false;
-
-    }
-
-
-    function bindTabs(){
-
-      const tabs=
-        document.querySelectorAll(
-          ".market-tab"
-        );
-
-      const views=
-        document.querySelectorAll(
-          ".market-view"
-        );
-
-
-      tabs.forEach(tab=>{
-
-        tab.addEventListener(
-          "click",
-          ()=>{
-
-            const market=
-              tab.dataset.market;
-
-
-            tabs.forEach(item=>{
-
-              item.classList.toggle(
-                "active",
-                item===tab
-              );
-
-            });
-
-
-            views.forEach(view=>{
-
-              view.hidden=
-                view.dataset.view!==market;
-
-            });
-
-          }
-        );
-
+      const rows = [...SUMMARY].sort((a,b)=>{
+        const ar = Number.isFinite(a.rs) ? a.rs : -999;
+        const br = Number.isFinite(b.rs) ? b.rs : -999;
+        return br - ar;
       });
 
+      wrap.innerHTML = `
+        <div class="panel-head" style="margin-bottom:14px">
+          <div>
+            <div class="panel-title">强弱轮动表</div>
+            <div class="panel-sub">保留表格式视图，方便你快速看 RS / 5日 / 20日 / 轮动 / 资金偏向</div>
+          </div>
+        </div>
+        <div class="rotation-table-wrap">
+          <table class="rotation-table">
+            <thead>
+              <tr>
+                <th>排名</th>
+                <th>行业</th>
+                <th>当日涨跌</th>
+                <th>点数涨跌</th>
+                <th>RS</th>
+                <th>5日</th>
+                <th>20日</th>
+                <th>轮动状态</th>
+                <th>资金偏向</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows.map((r,i)=>`
+                <tr class="clickable" data-open="${r.id}">
+                  <td>${i+1}</td>
+                  <td>
+                    <div style="font-weight:900">${r.cn}</div>
+                    <div style="font-size:12px;color:#7b8ca3">${r.ja}</div>
+                  </td>
+                  <td class="${clsByVal(r.pct)}" style="font-weight:900">${fmtPct(r.pct)}</td>
+                  <td class="${clsByVal(r.points)}">${fmtNum(r.points)}</td>
+                  <td class="${clsByVal(r.rs)}">${fmtPct(r.rs)}</td>
+                  <td class="${clsByVal(r.r5)}">${fmtPct(r.r5)}</td>
+                  <td class="${clsByVal(r.r20)}">${fmtPct(r.r20)}</td>
+                  <td><span class="pill ${rotationBadgeClass(r.rotation)}">${r.rotation}</span></td>
+                  <td><span class="flow-tag ${FLOW_CLASS[r.flow] || 'flow-wait'}">${r.flow}</span></td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        </div>
+      `;
+
+      bindIndustryOpeners();
     }
 
-
-    function bindSorting(){
-
-      document
-        .querySelectorAll(
-          "[data-sort]"
-        )
-        .forEach(button=>{
-
-          button.addEventListener(
-            "click",
-            ()=>{
-
-              const key=
-                button.dataset.sort;
-
-
-              if(state.sortKey===key){
-
-                state.sortDirection=
-                  state.sortDirection==="asc"
-                    ? "desc"
-                    : "asc";
-
-              }
-              else{
-
-                state.sortKey=key;
-
-                state.sortDirection=
-                  key==="rank" ||
-                  key==="industry"
-                    ? "asc"
-                    : "desc";
-
-              }
-
-
-              renderTable();
-
-            }
-          );
-
-        });
-
-    }
-
-
-    function bindSearch(){
-
-      elements.search
-        .addEventListener(
-          "input",
-          event=>{
-
-            state.query=
-              event.target.value || "";
-
-            renderTable();
-
-          }
-        );
-
-    }
-
-
-    function initialize(){
-
-      bindTabs();
-      bindSorting();
-      bindSearch();
-
-
-      const result=
-        parseEmbeddedData();
-
-
-      if(
-        result.error ||
-        !result.rows.length
-      ){
-
-        showJapanEmpty(
-          result.error
-        );
-
-        return;
-
+    function stockPanel(title, rows, fieldType) {
+      if (!rows || !rows.length) {
+        return `
+          <div class="stock-box">
+            <h4>${title}</h4>
+            <div class="stock-empty">
+              当前还没有接入该行业的真实个股数据源。<br>
+              这里的榜单框架已经保留，接入后会自动显示。
+            </div>
+          </div>
+        `;
       }
 
-
-      state.rows=
-        result.rows;
-
-      state.latestDate=
-        result.latestDate || "";
-
-      state.latestTime=
-        result.latestTime || "";
-
-
-      showJapanContent();
-
-      renderSummary();
-
-      renderTable();
-
+      return `
+        <div class="stock-box">
+          <h4>${title}</h4>
+          <div class="stock-list">
+            ${rows.slice(0,10).map((r, i)=>`
+              <div class="stock-item">
+                <div>
+                  <div class="stock-name">${i+1}. ${r["股票名称"] || r["名称"] || "—"}</div>
+                  <div class="stock-sub">${r["股票代码"] || r["代码"] || ""}</div>
+                </div>
+                <div class="${clsByVal(num(r[fieldType]))}" style="font-weight:900">${fieldType.includes("涨跌") || fieldType.includes("收益") ? fmtPct(num(r[fieldType])) : (Number.isFinite(num(r[fieldType])) ? fmtNum(num(r[fieldType])) : "—")}</div>
+              </div>
+            `).join("")}
+          </div>
+        </div>
+      `;
     }
 
+    function renderDetail() {
+      const wrap = document.getElementById("detail-content");
+      if (!SUMMARY.length) {
+        wrap.innerHTML = buildEmptyHTML();
+        return;
+      }
 
-    initialize();
+      let row = SUMMARY.find(r => r.id === selectedIndustry);
+      if (!row) row = SUMMARY[0];
+      selectedIndustry = row.id;
 
-  })();
+      const detailRows = RAW_DETAIL.filter(r => {
+        const key = r["一级行业"] || r["行业"] || r["industry"] || "";
+        return key === row.ja || key === row.cn;
+      });
+
+      const repRows = RAW_REP.filter(r => {
+        const key = r["一级行业"] || r["行业"] || r["industry"] || "";
+        return key === row.ja || key === row.cn;
+      });
+
+      const actRows = RAW_ACT.filter(r => {
+        const key = r["一级行业"] || r["行业"] || r["industry"] || "";
+        return key === row.ja || key === row.cn;
+      });
+
+      const gainers = detailRows
+        .filter(r => Number.isFinite(num(r["涨跌幅(%)"])))
+        .sort((a,b)=>num(b["涨跌幅(%)"]) - num(a["涨跌幅(%)"]));
+      const losers = detailRows
+        .filter(r => Number.isFinite(num(r["涨跌幅(%)"])))
+        .sort((a,b)=>num(a["涨跌幅(%)"]) - num(b["涨跌幅(%)"]));
+      const turnover = detailRows
+        .filter(r => Number.isFinite(num(r["成交额"])))
+        .sort((a,b)=>num(b["成交额"]) - num(a["成交额"]));
+
+      wrap.innerHTML = `
+        <div class="panel-head" style="margin-bottom:16px">
+          <div>
+            <div class="panel-title">${row.cn}</div>
+            <div class="panel-sub">${row.ja} · 点击其他行业卡片后，这里会切换详情</div>
+          </div>
+          <div class="legend">${row.date} ${row.time} · ${row.source}</div>
+        </div>
+
+        <div class="detail-layout">
+          <div class="detail-card">
+            <div class="detail-grid">
+              <div class="detail-metric">
+                <div class="k">行业指数值</div>
+                <div class="v">${fmtNum(row.value)}</div>
+              </div>
+              <div class="detail-metric">
+                <div class="k">当日涨跌幅</div>
+                <div class="v ${clsByVal(row.pct)}">${fmtPct(row.pct)}</div>
+              </div>
+              <div class="detail-metric">
+                <div class="k">当日相对强度 RS</div>
+                <div class="v ${clsByVal(row.rs)}">${fmtPct(row.rs)}</div>
+              </div>
+              <div class="detail-metric">
+                <div class="k">资金偏向</div>
+                <div class="v" style="font-size:18px">${row.flow}</div>
+              </div>
+              <div class="detail-metric">
+                <div class="k">5日收益率</div>
+                <div class="v ${clsByVal(row.r5)}">${fmtPct(row.r5)}</div>
+              </div>
+              <div class="detail-metric">
+                <div class="k">20日收益率</div>
+                <div class="v ${clsByVal(row.r20)}">${fmtPct(row.r20)}</div>
+              </div>
+              <div class="detail-metric">
+                <div class="k">轮动状态</div>
+                <div class="v" style="font-size:18px">${row.rotation}</div>
+              </div>
+              <div class="detail-metric">
+                <div class="k">上涨排名</div>
+                <div class="v">#${row.rankUp || "—"}</div>
+              </div>
+            </div>
+
+            <div class="detail-stock-grid">
+              ${stockPanel("行业涨幅榜", gainers, "涨跌幅(%)")}
+              ${stockPanel("行业跌幅榜", losers, "涨跌幅(%)")}
+              ${stockPanel("行业成交额榜", turnover, "成交额")}
+              ${stockPanel("代表股 / 活跃股", repRows.length || actRows.length ? [...repRows, ...actRows] : [], "涨跌幅(%)")}
+            </div>
+          </div>
+
+          <div class="detail-card">
+            <div class="panel-title" style="font-size:24px">行业说明</div>
+            <div class="panel-sub" style="margin-top:8px;line-height:1.9">
+              1）这里优先展示行业层级的真实数据：指数值、当日涨跌、RS、5日、20日、轮动状态。<br>
+              2）股票排行区已经保留，但当前你的 updater 还没有接入真实个股数据，所以先显示空状态。<br>
+              3）你后面如果接入：
+              <br>&nbsp;&nbsp;• 日本行业内股票明细
+              <br>&nbsp;&nbsp;• 日经225寄与度
+              <br>&nbsp;&nbsp;• 东证成交额/涨跌榜
+              <br>这些区域都会自动变成真实榜单。<br><br>
+              当前行业：<strong>${row.cn}</strong><br>
+              日文原名：<strong>${row.ja}</strong><br>
+              数据来源：<strong>${row.source}</strong>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderFuture() {
+      const wrap = document.getElementById("future-content");
+      const modules = [
+        ["中国A股行业", "后续接入申万行业数据，做成与日本相同的风格。"],
+        ["美国市场行业", "后续接入 GICS 行业/部门数据。"],
+        ["行业个股排行", "点击行业卡片后，展示涨幅榜 / 跌幅榜 / 成交额榜 / 活跃榜。"],
+        ["日本225寄与度", "展示正负寄与度榜单与个股寄与度详情。"],
+        ["日本225热力图", "按照构成权重或寄与度展示热力图。"],
+        ["东证TOP20", "上涨率 / 下跌率 / 成交额榜单。"],
+        ["日本225技术图", "SMA/EMA/金叉死叉等技术视图。"],
+        ["日本225历史极值", "历史最大涨幅、跌幅、最高值、最低值。"],
+        ["真实资金流向", "若后续拿到可用数据源，再替代当前‘资金偏向代理’。"]
+      ];
+
+      wrap.innerHTML = `
+        <div class="panel-head" style="margin-bottom:18px">
+          <div>
+            <div class="panel-title">待接入模块</div>
+            <div class="panel-sub">你前面发给我的那些重要页面，我都已经预留到产品结构里了</div>
+          </div>
+        </div>
+        <div class="future-grid">
+          ${modules.map(item=>`
+            <div class="future-card">
+              <div class="future-head">
+                <div class="future-title">${item[0]}</div>
+                <span class="badge">待接入</span>
+              </div>
+              <div class="panel-sub" style="margin-top:12px;line-height:1.8">${item[1]}</div>
+            </div>
+          `).join("")}
+        </div>
+      `;
+    }
+
+    function bindIndustryOpeners() {
+      document.querySelectorAll("[data-open]").forEach(el => {
+        el.onclick = () => {
+          selectedIndustry = el.getAttribute("data-open");
+          renderDetail();
+          sectionSwitch("detail");
+        };
+      });
+    }
+
+    function renderAll() {
+      renderOverview();
+      renderBoard();
+      renderRotation();
+      renderDetail();
+      renderFuture();
+    }
+
+    document.getElementById("industry-search").addEventListener("input", renderBoard);
+
+    renderAll();
   </script>
-
 </body>
 </html>
