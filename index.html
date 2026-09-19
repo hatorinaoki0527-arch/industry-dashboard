@@ -1,1029 +1,1537 @@
 <!doctype html>
 <html lang="zh-CN">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>行业轮动仪表盘</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="color-scheme" content="light">
+  <title>日本33行业价格强弱看板</title>
+
   <style>
-    :root{
-      --bg:#f5f7fb;
-      --panel:#ffffff;
-      --line:#dfe5ef;
-      --text:#16304d;
-      --muted:#6e7f97;
-      --blue:#2f6df6;
-      --blue-weak:#eaf1ff;
-      --red:#d84e57;
-      --green:#16916b;
-      --orange:#f59e0b;
-      --shadow:0 8px 30px rgba(15,35,95,.06);
-      --radius:18px;
-    }
-    *{box-sizing:border-box}
-    html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif}
-    a{text-decoration:none;color:inherit}
-    button{font:inherit}
-    .topbar{
-      background:#0d2450;color:#fff;padding:18px 24px;
-      display:flex;align-items:center;justify-content:space-between;gap:16px;
-      position:sticky;top:0;z-index:20;box-shadow:0 2px 18px rgba(0,0,0,.08);
-    }
-    .brand{display:flex;align-items:center;gap:14px}
-    .brand-logo{
-      width:44px;height:44px;border-radius:12px;background:#3f6df1;
-      display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;
-    }
-    .brand-title{font-size:28px;font-weight:800;line-height:1}
-    .brand-sub{font-size:12px;opacity:.75;letter-spacing:.12em;margin-top:4px}
-    .top-links{display:flex;gap:20px;align-items:center;flex-wrap:wrap}
-    .top-links a{opacity:.9;font-weight:700}
-    .top-note{font-size:13px;opacity:.75}
-
-    .layout{display:grid;grid-template-columns:250px 1fr;min-height:calc(100vh - 80px)}
-    .sidebar{
-      border-right:1px solid var(--line);
-      background:#fff;
-      padding:22px 18px;
-      position:sticky;top:80px;height:calc(100vh - 80px);overflow:auto;
-    }
-    .side-title{font-size:14px;color:#8b98aa;font-weight:700;margin:8px 10px 14px}
-    .market-list{display:grid;gap:14px}
-    .market-item{
-      background:#fff;border:1px solid var(--line);border-radius:18px;padding:18px 16px;
-      display:flex;align-items:center;justify-content:space-between;gap:12px;
-      box-shadow:var(--shadow)
-    }
-    .market-item.active{background:#edf3ff;border-color:#bfd0ff}
-    .market-left{display:flex;align-items:center;gap:14px}
-    .market-icon{
-      width:44px;height:44px;border-radius:14px;background:#edf1f8;color:#213a73;
-      display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800
-    }
-    .market-item.active .market-icon{background:#2f63d7;color:#fff}
-    .market-name{font-size:18px;font-weight:800}
-    .market-desc{font-size:12px;color:var(--muted);margin-top:4px}
-    .side-help{
-      margin-top:24px;padding:18px 14px;border-top:1px solid var(--line);color:var(--muted);line-height:1.8
-    }
-    .side-help strong{display:block;color:var(--text);margin-bottom:8px}
-
-    .content{padding:28px 28px 60px;overflow:auto}
-    .hero{
-      display:flex;align-items:flex-start;justify-content:space-between;gap:20px;flex-wrap:wrap;
-      margin-bottom:18px;
-    }
-    .eyebrow{font-size:14px;font-weight:900;color:#7558d8;letter-spacing:.12em}
-    .hero h1{font-size:58px;line-height:1.05;margin:6px 0 8px}
-    .hero p{margin:0;color:var(--muted);font-size:28px;font-weight:700}
-    .hero-actions{display:flex;gap:12px;flex-wrap:wrap}
-    .btn{
-      border:none;border-radius:16px;padding:14px 22px;font-weight:800;cursor:pointer
-    }
-    .btn.primary{background:var(--blue);color:#fff}
-    .btn.secondary{background:#fff;color:var(--text);border:1px solid var(--line)}
-    .btn.ghost{background:var(--blue-weak);color:var(--blue)}
-    .tipbar{
-      background:#eef4ff;border:1px solid #d8e4ff;color:#4d6082;
-      padding:14px 16px;border-radius:16px;margin-bottom:22px;font-size:15px
-    }
-    .tabs{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:22px}
-    .tab{
-      border:1px solid var(--line);background:#fff;padding:12px 18px;border-radius:14px;font-weight:800;color:#51637f;cursor:pointer
-    }
-    .tab.active{background:#eaf1ff;color:var(--blue);border-color:#bfd0ff}
-    .section{display:none}
-    .section.active{display:block}
-
-    .stats-grid{
-      display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin-bottom:22px
-    }
-    .stat-card{
-      background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:18px 20px;box-shadow:var(--shadow)
-    }
-    .stat-label{font-size:15px;color:#607289;font-weight:800;margin-bottom:10px}
-    .stat-value{font-size:34px;font-weight:900}
-    .stat-sub{margin-top:6px;color:var(--muted);font-size:15px;font-weight:700}
-    .up{color:var(--red)}
-    .down{color:var(--green)}
-    .flat{color:#77859a}
-
-    .grid-2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
-    .panel{
-      background:#fff;border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:var(--shadow)
-    }
-    .panel-head{
-      display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap
-    }
-    .panel-title{font-size:26px;font-weight:900}
-    .panel-sub{font-size:14px;color:var(--muted);font-weight:700}
-    .mini-table{width:100%;border-collapse:collapse}
-    .mini-table th,.mini-table td{padding:12px 10px;border-bottom:1px solid #edf1f6;text-align:left;font-size:15px}
-    .mini-table th{color:#6b7c92;font-size:13px;text-transform:uppercase;letter-spacing:.05em}
-    .rank-badge{
-      display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:28px;border-radius:10px;
-      background:#eef3fb;font-weight:900;color:#465a7b
+    :root {
+      --bg: #f4f7fb;
+      --panel: #ffffff;
+      --panel-soft: #f8fafc;
+      --line: #e4eaf2;
+      --text: #172033;
+      --muted: #738096;
+      --primary: #2563eb;
+      --primary-soft: #eaf1ff;
+      --up: #dc2626;
+      --up-soft: #fff0f0;
+      --down: #059669;
+      --down-soft: #eafaf4;
+      --flat: #64748b;
+      --warning: #d97706;
+      --warning-soft: #fff7e8;
+      --purple: #7c3aed;
+      --shadow: 0 8px 24px rgba(20, 33, 61, 0.06);
+      --radius: 16px;
+      --radius-small: 11px;
+      --header-height: 66px;
     }
 
-    .toolbar{
-      display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;align-items:center;
-      background:#fff;border:1px solid var(--line);border-radius:18px;padding:14px 16px;box-shadow:var(--shadow);margin-bottom:22px
-    }
-    .searchbar{display:flex;gap:10px;align-items:center;flex:1;min-width:260px}
-    .searchbar input,.toolbar select{
-      width:100%;padding:14px 16px;border-radius:14px;border:1px solid var(--line);background:#fff;font-size:16px
-    }
-    .toolbar .right{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-    .legend{font-size:14px;color:var(--muted);font-weight:700}
-    .legend .up{font-weight:900}
-    .legend .down{font-weight:900}
-
-    .board-title{
-      display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:14px
-    }
-    .board-title h2{font-size:40px;margin:0}
-    .board-title small{font-size:18px;color:var(--muted);font-weight:700}
-
-    .group-grid{
-      display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px
-    }
-    .group-card{
-      background:#fff;border:1px solid var(--line);border-radius:18px;overflow:hidden;box-shadow:var(--shadow)
-    }
-    .group-header{
-      padding:16px 18px;border-bottom:1px solid #edf1f6;display:flex;justify-content:space-between;gap:12px
-    }
-    .group-name{font-size:18px;font-weight:900}
-    .group-count,.group-meta{font-size:14px;color:var(--muted);font-weight:700}
-    .group-body{padding:0 16px 8px}
-    .industry-row{
-      border-bottom:1px solid #edf1f6;padding:14px 0;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;
-      cursor:pointer
-    }
-    .industry-row:last-child{border-bottom:none}
-    .industry-main{display:flex;flex-direction:column;gap:6px}
-    .industry-name{font-size:17px;font-weight:900}
-    .industry-ja{font-size:12px;color:var(--muted);font-weight:700}
-    .industry-meta{display:flex;gap:8px;flex-wrap:wrap}
-    .pill{
-      display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;
-      background:#f3f6fb;color:#53657e;font-size:12px;font-weight:800
-    }
-    .pill.blue{background:#edf4ff;color:#2c62dd}
-    .pill.orange{background:#fff5e8;color:#b26d00}
-    .pill.green{background:#ebfaf4;color:#0e8b64}
-    .pill.red{background:#fff0f1;color:#c5424b}
-    .industry-right{
-      display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:8px;min-width:88px
-    }
-    .industry-pct{font-size:18px;font-weight:900}
-    .industry-rank{font-size:13px;color:var(--muted);font-weight:800}
-
-    .rotation-table-wrap{
-      background:#fff;border:1px solid var(--line);border-radius:18px;overflow:hidden;box-shadow:var(--shadow)
-    }
-    .rotation-table{width:100%;border-collapse:collapse}
-    .rotation-table th,.rotation-table td{
-      padding:14px 12px;border-bottom:1px solid #edf1f6;text-align:left;font-size:14px
-    }
-    .rotation-table th{
-      background:#f8fbff;color:#607289;font-size:13px;position:sticky;top:0
-    }
-    .rotation-table tr:hover td{background:#fcfdff}
-    .clickable{cursor:pointer}
-
-    .detail-layout{
-      display:grid;grid-template-columns:1.15fr .85fr;gap:18px
-    }
-    .detail-grid{
-      display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px
-    }
-    .detail-metric{
-      background:#f8fbff;border:1px solid #e6edf9;border-radius:14px;padding:14px
-    }
-    .detail-metric .k{font-size:13px;color:#6a7c94;font-weight:800}
-    .detail-metric .v{font-size:22px;font-weight:900;margin-top:8px}
-    .detail-card{
-      background:#fff;border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:var(--shadow)
-    }
-    .detail-stock-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
-    .stock-box{
-      border:1px solid #edf1f6;border-radius:14px;padding:14px;background:#fbfcff
-    }
-    .stock-box h4{margin:0 0 10px;font-size:17px}
-    .stock-empty{
-      padding:26px 12px;text-align:center;color:var(--muted);line-height:1.8
-    }
-    .stock-list{display:grid;gap:10px}
-    .stock-item{
-      display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px dashed #e7edf5
-    }
-    .stock-item:last-child{border-bottom:none}
-    .stock-name{font-weight:800}
-    .stock-sub{font-size:12px;color:var(--muted)}
-    .flow-tag{
-      display:inline-flex;align-items:center;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:900
-    }
-    .flow-in{background:#fff0f1;color:#c8434c}
-    .flow-out{background:#ebfaf4;color:#0e8b64}
-    .flow-wait{background:#f3f6fb;color:#53657e}
-
-    .future-grid{
-      display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px
-    }
-    .future-card{
-      background:#fff;border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:var(--shadow)
-    }
-    .future-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
-    .future-title{font-size:18px;font-weight:900}
-    .badge{
-      display:inline-flex;align-items:center;padding:5px 10px;border-radius:999px;background:#fff5e8;color:#b26d00;font-size:12px;font-weight:900
-    }
-    .footer-note{
-      margin-top:28px;padding-top:18px;border-top:1px solid var(--line);color:var(--muted);font-size:14px
+    * {
+      box-sizing: border-box;
     }
 
-    .empty-full{
-      background:#fff;border:1px solid var(--line);border-radius:22px;padding:80px 24px;text-align:center;box-shadow:var(--shadow)
+    html {
+      scroll-behavior: smooth;
     }
-    .empty-icon{
-      width:60px;height:60px;border-radius:50%;margin:0 auto 18px;background:#edf2ff;color:#2f63d7;
-      display:flex;align-items:center;justify-content:center;font-size:34px;font-weight:900
-    }
-    .empty-full h3{font-size:28px;margin:0 0 10px}
-    .empty-full p{margin:0;color:var(--muted);font-size:18px;line-height:1.8}
 
-    @media (max-width:1400px){
-      .stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
-      .group-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
-      .future-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
-      .detail-layout{grid-template-columns:1fr}
+    body {
+      margin: 0;
+      min-width: 320px;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 0 0, rgba(37, 99, 235, 0.06), transparent 28rem),
+        var(--bg);
+      font-family:
+        -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+        "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC",
+        Arial, sans-serif;
+      line-height: 1.5;
     }
-    @media (max-width:980px){
-      .layout{grid-template-columns:1fr}
-      .sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--line)}
-      .hero h1{font-size:42px}
-      .grid-2,.group-grid,.future-grid,.detail-stock-grid,.detail-grid{grid-template-columns:1fr}
-      .stats-grid{grid-template-columns:1fr}
-      .rotation-table-wrap{overflow:auto}
-      .rotation-table{min-width:920px}
+
+    button,
+    select {
+      font: inherit;
+    }
+
+    button {
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .app-header {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      border-bottom: 1px solid rgba(228, 234, 242, 0.92);
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: blur(15px);
+    }
+
+    .header-inner {
+      width: min(1480px, calc(100% - 32px));
+      min-height: var(--header-height);
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 22px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      flex: 0 0 auto;
+    }
+
+    .brand-mark {
+      width: 37px;
+      height: 37px;
+      display: grid;
+      place-items: center;
+      border-radius: 12px;
+      color: #fff;
+      font-weight: 800;
+      background: linear-gradient(135deg, #2563eb, #7c3aed);
+      box-shadow: 0 8px 16px rgba(37, 99, 235, 0.24);
+    }
+
+    .brand-title {
+      font-size: 17px;
+      font-weight: 800;
+      letter-spacing: 0.01em;
+    }
+
+    .brand-subtitle {
+      margin-top: 1px;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .top-navigation {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+
+    .top-navigation::-webkit-scrollbar,
+    .market-tabs::-webkit-scrollbar {
+      display: none;
+    }
+
+    .nav-button,
+    .market-tab {
+      border: 0;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: 0.18s ease;
+    }
+
+    .nav-button {
+      padding: 9px 12px;
+      border-radius: 9px;
+      color: #59657a;
+      background: transparent;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .nav-button:hover {
+      color: var(--primary);
+      background: var(--primary-soft);
+    }
+
+    .nav-button.active {
+      color: #fff;
+      background: var(--primary);
+      box-shadow: 0 6px 14px rgba(37, 99, 235, 0.2);
+    }
+
+    .page-shell {
+      width: min(1480px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 24px 0 38px;
+    }
+
+    .hero {
+      padding: 23px 25px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background:
+        linear-gradient(120deg, rgba(37, 99, 235, 0.08), rgba(124, 58, 237, 0.03)),
+        var(--panel);
+      box-shadow: var(--shadow);
+    }
+
+    .hero-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 22px;
+    }
+
+    .hero h1 {
+      margin: 0;
+      font-size: clamp(23px, 3vw, 34px);
+      line-height: 1.25;
+      letter-spacing: -0.02em;
+    }
+
+    .hero-description {
+      max-width: 780px;
+      margin: 9px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .data-status {
+      min-width: 220px;
+      padding: 11px 13px;
+      border: 1px solid rgba(37, 99, 235, 0.16);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.8);
+    }
+
+    .status-label {
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .status-value {
+      margin-top: 3px;
+      font-size: 13px;
+      font-weight: 750;
+      word-break: break-word;
+    }
+
+    .market-tabs {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      margin-top: 19px;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+
+    .market-tab {
+      padding: 9px 16px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: #5d687b;
+      background: #fff;
+      font-size: 13px;
+      font-weight: 750;
+    }
+
+    .market-tab:hover {
+      color: var(--primary);
+      border-color: #b9ccfb;
+    }
+
+    .market-tab.active {
+      color: #fff;
+      border-color: var(--primary);
+      background: var(--primary);
+    }
+
+    .content-area {
+      margin-top: 20px;
+    }
+
+    .view-section {
+      display: none;
+    }
+
+    .view-section.active {
+      display: block;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .summary-card {
+      min-height: 112px;
+      padding: 17px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+    }
+
+    .summary-label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 650;
+    }
+
+    .summary-value {
+      margin-top: 7px;
+      font-size: 24px;
+      font-weight: 820;
+      line-height: 1.2;
+    }
+
+    .summary-value.compact {
+      font-size: 17px;
+      line-height: 1.35;
+    }
+
+    .summary-note {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .section-heading {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 18px;
+      margin: 28px 0 13px;
+    }
+
+    .section-heading h2 {
+      margin: 0;
+      font-size: 20px;
+    }
+
+    .section-heading p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .group-board {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      align-items: start;
+      gap: 16px;
+    }
+
+    .industry-group {
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--panel);
+      box-shadow: var(--shadow);
+    }
+
+    .group-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 15px 17px;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(90deg, rgba(37, 99, 235, 0.055), rgba(255, 255, 255, 0));
+    }
+
+    .group-title {
+      font-size: 15px;
+      font-weight: 800;
+    }
+
+    .group-count {
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .sector-list {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      padding: 12px;
+    }
+
+    .sector-card {
+      position: relative;
+      width: 100%;
+      padding: 13px;
+      overflow: hidden;
+      text-align: left;
+      cursor: pointer;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      color: var(--text);
+      background: var(--panel-soft);
+    }
+
+    .sector-card::before {
+      content: "";
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 3px;
+      background: #cbd5e1;
+    }
+
+    .sector-card.positive::before {
+      background: var(--up);
+    }
+
+    .sector-card.negative::before {
+      background: var(--down);
+    }
+
+    .sector-name-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .sector-cn {
+      font-size: 14px;
+      font-weight: 800;
+    }
+
+    .sector-jp {
+      margin-top: 2px;
+      min-height: 17px;
+      color: var(--muted);
+      font-size: 10px;
+    }
+
+    .daily-value {
+      flex: 0 0 auto;
+      font-size: 16px;
+      font-weight: 850;
+    }
+
+    .metric-mini-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 7px;
+      margin-top: 11px;
+    }
+
+    .metric-mini span {
+      display: block;
+      color: var(--muted);
+      font-size: 9px;
+    }
+
+    .metric-mini strong {
+      display: block;
+      margin-top: 1px;
+      font-size: 11px;
+    }
+
+    .sector-status-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 7px;
+      margin-top: 11px;
+      padding-top: 9px;
+      border-top: 1px dashed #dce3ec;
+    }
+
+    .status-badge {
+      padding: 3px 7px;
+      border-radius: 999px;
+      color: #576275;
+      background: #edf1f6;
+      font-size: 9px;
+      font-weight: 750;
+    }
+
+    .status-badge.strong {
+      color: #b91c1c;
+      background: var(--up-soft);
+    }
+
+    .status-badge.weak {
+      color: #047857;
+      background: var(--down-soft);
+    }
+
+    .streak-text {
+      color: var(--muted);
+      font-size: 9px;
+    }
+
+    .up {
+      color: var(--up) !important;
+    }
+
+    .down {
+      color: var(--down) !important;
+    }
+
+    .flat {
+      color: var(--flat) !important;
+    }
+
+    .ranking-layout {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .ranking-panel,
+    .table-panel,
+    .detail-panel,
+    .trend-panel,
+    .stock-module,
+    .empty-panel,
+    .no-data-panel {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--panel);
+      box-shadow: var(--shadow);
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 15px;
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .panel-title {
+      font-size: 16px;
+      font-weight: 820;
+    }
+
+    .panel-subtitle {
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .ranking-list {
+      margin: 0;
+      padding: 8px 17px 14px;
+      list-style: none;
+    }
+
+    .ranking-item {
+      display: grid;
+      grid-template-columns: 32px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 10px;
+      padding: 11px 2px;
+      border-bottom: 1px solid #edf1f5;
+      cursor: pointer;
+    }
+
+    .ranking-number {
+      width: 26px;
+      height: 26px;
+      display: grid;
+      place-items: center;
+      border-radius: 8px;
+      color: #627086;
+      background: #f0f3f8;
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .ranking-number.top-three {
+      color: #fff;
+      background: linear-gradient(135deg, #f59e0b, #ef4444);
+    }
+
+    .ranking-name {
+      font-size: 13px;
+      font-weight: 750;
+    }
+
+    .ranking-jp {
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 400;
+    }
+
+    .ranking-value {
+      font-size: 14px;
+      font-weight: 850;
+    }
+
+    .table-scroll {
+      overflow-x: auto;
+    }
+
+    .rotation-table {
+      width: 100%;
+      min-width: 1040px;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    .rotation-table th,
+    .rotation-table td {
+      padding: 12px 11px;
+      text-align: right;
+      border-bottom: 1px solid #edf1f5;
+      white-space: nowrap;
+    }
+
+    .rotation-table th {
+      color: #657188;
+      background: #f8fafc;
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .rotation-table th:first-child,
+    .rotation-table td:first-child {
+      min-width: 165px;
+      text-align: left;
+    }
+
+    .rotation-table tbody tr {
+      cursor: pointer;
+    }
+
+    .table-industry-name {
+      font-weight: 800;
+    }
+
+    .table-industry-jp {
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 9px;
+      font-weight: 400;
+    }
+
+    .detail-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .industry-select {
+      max-width: 280px;
+      padding: 9px 35px 9px 11px;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      background: #fff;
+    }
+
+    .detail-header-content {
+      padding: 20px 20px 5px;
+    }
+
+    .detail-title-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 18px;
+    }
+
+    .detail-title {
+      margin: 0;
+      font-size: 27px;
+    }
+
+    .detail-jp-name {
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .detail-daily {
+      font-size: 29px;
+      font-weight: 880;
+    }
+
+    .detail-metrics {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 10px;
+      padding: 17px 20px 21px;
+    }
+
+    .detail-metric {
+      min-height: 77px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: var(--panel-soft);
+    }
+
+    .detail-metric-label {
+      color: var(--muted);
+      font-size: 10px;
+    }
+
+    .detail-metric-value {
+      margin-top: 6px;
+      font-size: 15px;
+      font-weight: 820;
+    }
+
+    .trend-panel {
+      margin-top: 16px;
+      overflow: hidden;
+    }
+
+    .chart-wrap {
+      position: relative;
+      height: 340px;
+      padding: 10px 14px 16px;
+    }
+
+    #trendCanvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .stock-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .stock-module {
+      min-height: 184px;
+      overflow: hidden;
+    }
+
+    .stock-module-title {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      font-size: 14px;
+      font-weight: 800;
+    }
+
+    .stock-empty {
+      min-height: 130px;
+      display: grid;
+      place-items: center;
+      padding: 18px;
+      color: var(--muted);
+      text-align: center;
+      font-size: 12px;
+    }
+
+    .empty-panel,
+    .no-data-panel {
+      padding: 65px 24px;
+      text-align: center;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .footer {
+      width: min(1480px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 0 0 30px;
+      color: var(--muted);
+      font-size: 11px;
+      text-align: center;
+    }
+
+    @media (max-width: 1180px) {
+      .summary-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .group-board,
+      .ranking-layout {
+        grid-template-columns: 1fr;
+      }
+
+      .stock-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 620px) {
+      .summary-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .sector-list {
+        grid-template-columns: 1fr;
+      }
+
+      .stock-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .detail-metrics {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
     }
   </style>
 </head>
+
 <body>
-  <header class="topbar">
+
+<header class="app-header">
+  <div class="header-inner">
     <div class="brand">
-      <div class="brand-logo">▦</div>
+      <div class="brand-mark">33</div>
       <div>
-        <div class="brand-title">行业观察</div>
-        <div class="brand-sub">SECTOR ATLAS</div>
+        <div class="brand-title">行业价格强弱看板</div>
+        <div class="brand-subtitle">日本市场 · 价格表现与轮动观察</div>
       </div>
     </div>
-    <div class="top-links">
-      <a href="#overview">总览</a>
-      <a href="#board">行业看板</a>
-      <a href="#rotation">强弱轮动</a>
-      <a href="#detail">行业详情</a>
-      <span class="top-note">• 本地运行 · 离线可用</span>
+
+    <nav class="top-navigation">
+      <button type="button" class="nav-button active" data-view="overview">总览</button>
+      <button type="button" class="nav-button" data-view="ranking">TOP10 / Bottom10</button>
+      <button type="button" class="nav-button" data-view="rotation">强弱轮动</button>
+      <button type="button" class="nav-button" data-view="detail">行业详情</button>
+    </nav>
+  </div>
+</header>
+
+<main class="page-shell">
+
+  <section class="hero">
+    <div class="hero-row">
+      <div>
+        <h1>全球行业价格强弱与轮动</h1>
+        <p class="hero-description">
+          日本市场覆盖33个行业。通过今日、5日、20日表现及RS指标，观察价格强弱和行业轮动状态。
+        </p>
+      </div>
+
+      <div class="data-status">
+        <div class="status-label">数据状态</div>
+        <div class="status-value" id="dataStatusText">正在读取数据……</div>
+      </div>
     </div>
-  </header>
 
-  <div class="layout">
-    <aside class="sidebar">
-      <div class="side-title">市场分区</div>
-      <div class="market-list">
-        <div class="market-item">
-          <div class="market-left">
-            <div class="market-icon">中</div>
+    <div class="market-tabs">
+      <button type="button" class="market-tab active" data-market="japan">日本市场</button>
+      <button type="button" class="market-tab" data-market="china">中国A股</button>
+      <button type="button" class="market-tab" data-market="usa">美国市场</button>
+    </div>
+  </section>
+
+  <div class="content-area">
+
+    <section id="noDataPanel" class="no-data-panel hidden">
+      <h2>暂未读取到行业数据</h2>
+      <p>请先运行 Actions → Daily Update。</p>
+    </section>
+
+    <section id="marketEmptyPanel" class="empty-panel hidden">
+      <h2 id="marketEmptyTitle">该市场暂未接入</h2>
+      <p id="marketEmptyText"></p>
+    </section>
+
+    <div id="japanContent">
+
+      <section class="view-section active" data-view-section="overview">
+        <div id="summaryGrid" class="summary-grid"></div>
+
+        <div class="section-heading">
+          <div>
+            <h2>33行业分组看板</h2>
+            <p>点击任意行业卡片进入行业详情。</p>
+          </div>
+        </div>
+
+        <div id="groupBoard" class="group-board"></div>
+      </section>
+
+      <section class="view-section" data-view-section="ranking">
+        <div class="section-heading">
+          <div>
+            <h2>今日涨跌排行榜</h2>
+            <p>按 dailyPercent 排序。</p>
+          </div>
+        </div>
+
+        <div class="ranking-layout">
+          <article class="ranking-panel">
+            <div class="panel-header">
+              <div>
+                <div class="panel-title">TOP10</div>
+                <div class="panel-subtitle">今日表现最强</div>
+              </div>
+            </div>
+            <ol id="topRankingList" class="ranking-list"></ol>
+          </article>
+
+          <article class="ranking-panel">
+            <div class="panel-header">
+              <div>
+                <div class="panel-title">Bottom10</div>
+                <div class="panel-subtitle">今日表现最弱</div>
+              </div>
+            </div>
+            <ol id="bottomRankingList" class="ranking-list"></ol>
+          </article>
+        </div>
+      </section>
+
+      <section class="view-section" data-view-section="rotation">
+        <div class="section-heading">
+          <div>
+            <h2>强弱轮动表</h2>
+            <p>不显示资金流，仅展示价格强弱与轮动。</p>
+          </div>
+        </div>
+
+        <article class="table-panel">
+          <div class="table-scroll">
+            <table class="rotation-table">
+              <thead>
+                <tr>
+                  <th>行业</th>
+                  <th>今日</th>
+                  <th>5日</th>
+                  <th>20日</th>
+                  <th>RS5</th>
+                  <th>RS20</th>
+                  <th>排名</th>
+                  <th>排名变化</th>
+                  <th>连续状态</th>
+                  <th>轮动</th>
+                </tr>
+              </thead>
+              <tbody id="rotationTableBody"></tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+
+      <section class="view-section" data-view-section="detail">
+
+        <div class="section-heading">
+          <div>
+            <h2>行业详情</h2>
+            <p>历史图是每日涨跌幅，不是指数累计走势。</p>
+          </div>
+
+          <div class="detail-toolbar">
+            <select id="industrySelect" class="industry-select"></select>
+          </div>
+        </div>
+
+        <article class="detail-panel">
+          <div id="detailHeaderContent" class="detail-header-content"></div>
+          <div id="detailMetrics" class="detail-metrics"></div>
+        </article>
+
+        <article class="trend-panel">
+          <div class="panel-header">
             <div>
-              <div class="market-name">中国 A股</div>
-              <div class="market-desc">申万2021 · 行业（待接入）</div>
+              <div class="panel-title">最近60个交易日每日涨跌</div>
+              <div class="panel-subtitle">选中行业 vs 33行业平均</div>
             </div>
           </div>
-          <div style="font-size:24px;color:#9aa7ba">›</div>
-        </div>
 
-        <div class="market-item active">
-          <div class="market-left">
-            <div class="market-icon">日</div>
-            <div>
-              <div class="market-name">日本市场</div>
-              <div class="market-desc">东证33 · 33个行业</div>
-            </div>
+          <div class="chart-wrap">
+            <canvas id="trendCanvas"></canvas>
           </div>
-          <div style="font-size:24px;color:#8091ad">›</div>
-        </div>
+        </article>
 
-        <div class="market-item">
-          <div class="market-left">
-            <div class="market-icon">美</div>
-            <div>
-              <div class="market-name">美国市场</div>
-              <div class="market-desc">GICS · 部门（待接入）</div>
-            </div>
-          </div>
-          <div style="font-size:24px;color:#9aa7ba">›</div>
-        </div>
-      </div>
-
-      <div class="side-help">
-        <strong>各市场独立查看</strong>
-        行业、股票、榜单与历史日期分开读取。<br>
-        当前页面先完成日本市场行业层级数据。<br><br>
-        <strong>下一步可继续接入</strong>
-        日本225寄与度 / 热力图 / 技术图 / 历史极值 / 行业个股榜单
-      </div>
-    </aside>
-
-    <main class="content">
-      <div class="hero">
-        <div>
-          <div class="eyebrow">JP MARKET &nbsp;&nbsp; Asia/Tokyo</div>
-          <h1>日本市场</h1>
-          <p>东证33行业 · 行业轮动与强弱观察</p>
-        </div>
-        <div class="hero-actions">
-          <button class="btn primary" id="jump-board">行业看板</button>
-          <button class="btn secondary" id="jump-rotation">强弱轮动</button>
-          <button class="btn ghost" id="jump-detail">行业详情</button>
-        </div>
-      </div>
-
-      <div class="tipbar" id="tipbar">
-        已导入数据按观测日期读取；个股排行/寄与度/热力图等模块目前保留入口，待真实数据源接入后显示。
-      </div>
-
-      <div class="tabs" id="tabs">
-        <button class="tab active" data-tab="overview">总览</button>
-        <button class="tab" data-tab="board">行业看板</button>
-        <button class="tab" data-tab="rotation">强弱轮动</button>
-        <button class="tab" data-tab="detail">行业详情</button>
-        <button class="tab" data-tab="future">待接入模块</button>
-      </div>
-
-      <section class="section active" id="section-overview">
-        <div id="overview-content"></div>
-      </section>
-
-      <section class="section" id="section-board">
-        <div class="toolbar">
-          <div class="searchbar">
-            <input id="industry-search" type="text" placeholder="搜索日本行业 / 日文 / 中文名" />
-          </div>
-          <div class="right">
-            <span class="legend">红色<span class="up">上涨</span> / 绿色<span class="down">下跌</span> / 灰色缺失</span>
+        <div class="section-heading">
+          <div>
+            <h2>个股榜单</h2>
+            <p>等待真实个股数据源。</p>
           </div>
         </div>
-        <div id="board-content"></div>
+
+        <div class="stock-grid">
+          <article class="stock-module">
+            <div class="stock-module-title">个股涨幅榜</div>
+            <div class="stock-empty">待接入真实个股数据源</div>
+          </article>
+
+          <article class="stock-module">
+            <div class="stock-module-title">个股跌幅榜</div>
+            <div class="stock-empty">待接入真实个股数据源</div>
+          </article>
+
+          <article class="stock-module">
+            <div class="stock-module-title">成交额榜</div>
+            <div class="stock-empty">待接入真实个股数据源</div>
+          </article>
+
+          <article class="stock-module">
+            <div class="stock-module-title">代表股</div>
+            <div class="stock-empty">待接入真实个股数据源</div>
+          </article>
+        </div>
+
       </section>
 
-      <section class="section" id="section-rotation">
-        <div id="rotation-content"></div>
-      </section>
-
-      <section class="section" id="section-detail">
-        <div id="detail-content"></div>
-      </section>
-
-      <section class="section" id="section-future">
-        <div id="future-content"></div>
-      </section>
-
-      <div class="footer-note">
-        说明：当前行业层数据来自 <strong>nikkei225jp.com</strong> 的日本行业指数页面抓取；<br>
-        “资金偏向”与“轮动状态”当前为行业强弱的代理判断，不是逐笔真实资金流。<br>
-        “点击行业查看股票排行”功能已在页面框架中保留，待你接入真实个股数据源后自动显示。
-      </div>
-    </main>
+    </div>
   </div>
 
-  <script id="embedded-data" type="application/json">
-{
-  "summary": [],
-  "rep": [],
-  "act": [],
-  "detail": [],
-  "history": {},
-  "meta": {
-    "market": "日本",
-    "classification": "东证33",
-    "generated_at": null
-  }
-}
-  </script>
+</main>
 
-  <script>
-    const INDUSTRY_LABELS = {
-      "水産・農林業":"水产与农林",
-      "鉱業":"矿业",
-      "建設業":"建筑",
-      "食料品":"食品",
-      "繊維製品":"纺织制品",
-      "パルプ・紙":"纸浆与造纸",
-      "化学":"化学",
-      "医薬品":"医药",
-      "石油・石炭製品":"石油与煤炭制品",
-      "ゴム製品":"橡胶制品",
-      "ガラス・土石製品":"玻璃与土石制品",
-      "鉄鋼":"钢铁",
-      "非鉄金属":"有色金属",
-      "金属製品":"金属制品",
-      "機械":"机械",
-      "電気機器":"电气设备",
-      "輸送用機器":"运输设备",
-      "精密機器":"精密设备",
-      "その他製品":"其他制品",
-      "電気・ガス業":"电力与燃气",
-      "陸運業":"陆运",
-      "海運業":"海运",
-      "空運業":"空运",
-      "倉庫・運輸関連業":"仓储与运输配套",
-      "情報・通信業":"信息与通信",
-      "卸売業":"批发贸易",
-      "小売業":"零售",
-      "銀行業":"银行",
-      "証券、商品先物取引業":"证券与商品期货",
-      "保険業":"保险",
-      "その他金融業":"其他金融",
-      "不動産業":"房地产",
-      "サービス業":"服务"
-    };
+<footer class="footer">
+  本页强弱、排名与轮动均基于价格表现，不代表资金净流。
+</footer>
 
-    const GROUPS = {
-      "食品与消费":["食品","零售","服务","其他制品","水产与农林"],
-      "制造与设备":["橡胶制品","机械","精密设备","运输设备","电气设备"],
-      "公用与运输":["仓储与运输配套","海运","空运","陆运","电力与燃气"],
-      "资源与材料":["有色金属","化学","矿业","钢铁","纸浆与造纸","纺织制品","石油与煤炭制品"],
-      "建筑与地产":["金属制品","玻璃与土石制品","建筑","房地产"],
-      "医药与通信":["医药","信息与通信"],
-      "金融与商社":["银行","其他金融","保险","批发贸易","证券与商品期货"]
-    };
+<script id="daily-update-data" type="application/json">
+{}
+</script>
 
-    const FLOW_CLASS = {
-      "资金流入":"flow-in",
-      "资金回流":"flow-in",
-      "资金流出":"flow-out",
-      "观望分化":"flow-wait",
-      "观望":"flow-wait"
-    };
+<script>
+(() => {
+  "use strict";
 
-    function safeParseEmbeddedData() {
-      const el = document.getElementById("embedded-data");
-      if (!el) return {};
-      const text = el.textContent.trim();
-      if (!text) return {};
+  const INDUSTRY_DEFINITIONS = {
+    "水産・農林業": { cn:"水产与农林", group:"食品与消费" },
+    "鉱業": { cn:"矿业", group:"资源与材料" },
+    "建設業": { cn:"建筑业", group:"建筑与地产" },
+    "食料品": { cn:"食品", group:"食品与消费" },
+    "繊維製品": { cn:"纺织品", group:"食品与消费" },
+    "パルプ・紙": { cn:"纸浆与纸", group:"资源与材料" },
+    "化学": { cn:"化学", group:"资源与材料" },
+    "医薬品": { cn:"医药品", group:"医药与通信" },
+    "石油・石炭製品": { cn:"石油与煤炭制品", group:"资源与材料" },
+    "ゴム製品": { cn:"橡胶制品", group:"制造与设备" },
+    "ガラス・土石製品": { cn:"玻璃与土石制品", group:"资源与材料" },
+    "鉄鋼": { cn:"钢铁", group:"资源与材料" },
+    "非鉄金属": { cn:"有色金属", group:"资源与材料" },
+    "金属製品": { cn:"金属制品", group:"制造与设备" },
+    "機械": { cn:"机械", group:"制造与设备" },
+    "電気機器": { cn:"电气设备", group:"制造与设备" },
+    "輸送用機器": { cn:"运输设备", group:"制造与设备" },
+    "精密機器": { cn:"精密仪器", group:"制造与设备" },
+    "その他製品": { cn:"其他制品", group:"食品与消费" },
+    "電気・ガス業": { cn:"电力与燃气", group:"公用与运输" },
+    "陸運業": { cn:"陆运", group:"公用与运输" },
+    "海運業": { cn:"海运", group:"公用与运输" },
+    "空運業": { cn:"空运", group:"公用与运输" },
+    "倉庫・運輸関連業": { cn:"仓储与运输服务", group:"公用与运输" },
+    "情報・通信業": { cn:"信息与通信", group:"医药与通信" },
+    "卸売業": { cn:"批发贸易", group:"金融与商社" },
+    "小売業": { cn:"零售业", group:"食品与消费" },
+    "銀行業": { cn:"银行业", group:"金融与商社" },
+    "証券業": { cn:"证券与商品期货", group:"金融与商社" },
+    "証券、商品先物取引業": { cn:"证券与商品期货", group:"金融与商社" },
+    "保険業": { cn:"保险业", group:"金融与商社" },
+    "その他金融業": { cn:"其他金融", group:"金融与商社" },
+    "不動産業": { cn:"房地产", group:"建筑与地产" },
+    "サービス業": { cn:"服务业", group:"食品与消费" }
+  };
+
+  const GROUP_ORDER = [
+    "食品与消费",
+    "制造与设备",
+    "公用与运输",
+    "资源与材料",
+    "建筑与地产",
+    "医药与通信",
+    "金融与商社"
+  ];
+
+  const state = {
+    data:null,
+    sectors:[],
+    market:"japan",
+    view:"overview",
+    selectedSector:null
+  };
+
+  const $ = id => document.getElementById(id);
+
+  function readData() {
+    const nodes = [
+      $("daily-update-data"),
+      $("industry-data")
+    ].filter(Boolean);
+
+    for (const node of nodes) {
       try {
-        return JSON.parse(text);
-      } catch (e) {
-        console.error("embedded-data 解析失败", e);
-        return {};
-      }
+        const parsed = JSON.parse(node.textContent || "{}");
+        if (parsed && Array.isArray(parsed.sectors)) return parsed;
+      } catch {}
     }
 
-    const RAW_DATA = safeParseEmbeddedData();
-    const RAW_SUMMARY = Array.isArray(RAW_DATA.summary) ? RAW_DATA.summary : [];
-    const RAW_DETAIL = Array.isArray(RAW_DATA.detail) ? RAW_DATA.detail : [];
-    const RAW_REP = Array.isArray(RAW_DATA.rep) ? RAW_DATA.rep : [];
-    const RAW_ACT = Array.isArray(RAW_DATA.act) ? RAW_DATA.act : [];
+    const globals = [
+      window.DAILY_UPDATE_DATA,
+      window.INDUSTRY_DATA
+    ];
 
-    function num(v) {
-      if (v === null || v === undefined || v === "") return null;
-      const n = Number(v);
-      return Number.isFinite(n) ? n : null;
+    for (const item of globals) {
+      if (item && Array.isArray(item.sectors)) return item;
     }
 
-    function fmtPct(v) {
-      if (v === null || v === undefined || !Number.isFinite(v)) return "—";
-      return (v >= 0 ? "+" : "") + v.toFixed(2) + "%";
-    }
+    return null;
+  }
 
-    function fmtNum(v, digits = 2) {
-      if (v === null || v === undefined || !Number.isFinite(v)) return "—";
-      return new Intl.NumberFormat("zh-CN", {
-        minimumFractionDigits: digits,
-        maximumFractionDigits: digits
-      }).format(v);
-    }
+  function toNumber(v) {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  }
 
-    function clsByVal(v) {
-      if (v === null || v === undefined || !Number.isFinite(v)) return "flat";
-      if (v > 0) return "up";
-      if (v < 0) return "down";
-      return "flat";
-    }
+  function average(values) {
+    const valid = values.map(toNumber).filter(v => v !== null);
+    return valid.length ? valid.reduce((a,b)=>a+b,0)/valid.length : null;
+  }
 
-    function rotationBadgeClass(text="") {
-      if (text.includes("领涨") || text.includes("转强")) return "red";
-      if (text.includes("弱势") || text.includes("下行")) return "green";
-      return "orange";
-    }
+  function pct(v) {
+    const n = toNumber(v);
+    if (n === null) return "—";
+    return `${n > 0 ? "+" : ""}${n.toFixed(2)}%`;
+  }
 
-    const SUMMARY = RAW_SUMMARY.map((row, idx) => {
-      const ja = row["一级行业"] || row["行业指数名称"] || row["industry"] || "";
-      const cn = row["行业中文名"] || INDUSTRY_LABELS[ja] || ja;
-      const pct = num(row["行业指数涨跌幅(%)"]);
-      const value = num(row["行业指数值"]);
-      const points = num(row["行业指数点数涨跌"]);
-      const rs = num(row["当日相对强度(%)"]);
-      const r5 = num(row["5日收益率(%)"]);
-      const r20 = num(row["20日收益率(%)"]);
-      return {
-        id: ja || cn || String(idx + 1),
-        date: row["日期"] || "",
-        time: row["时间"] || "",
-        market: row["市场"] || "日本",
-        classification: row["分类体系"] || "东证33",
-        ja,
-        cn,
-        value,
-        points,
-        pct,
-        rs,
-        r5,
-        r20,
-        rotation: row["轮动状态"] || "—",
-        flow: row["资金偏向"] || "观望",
-        source: row["数据状态"] || "来源: nikkei225jp.com",
-        rankUp: num(row["上涨排名"]),
-        rankDown: num(row["下跌排名"]),
-        marketAvg: num(row["33行业当日平均涨跌幅(%)"])
-      };
+  function valClass(v) {
+    const n = toNumber(v);
+    if (n === null || n === 0) return "flat";
+    return n > 0 ? "up" : "down";
+  }
+
+  function canonicalName(name) {
+    const raw = String(name || "").trim();
+    if (raw === "証券業") return "証券業";
+    if (raw === "証券、商品先物取引業") return "証券業";
+    return raw;
+  }
+
+  function metaFor(name) {
+    const canonical = canonicalName(name);
+
+    return INDUSTRY_DEFINITIONS[canonical]
+      || INDUSTRY_DEFINITIONS[name]
+      || {cn:name || "未知行业", group:"其他"};
+  }
+
+  function normalizeSector(item, i) {
+    const meta = metaFor(item.name);
+
+    return {
+      ...item,
+      _pos:i,
+      _cn:meta.cn,
+      _jp:item.name || "",
+      _group:meta.group
+    };
+  }
+
+  function rankText(v) {
+    const n = toNumber(v);
+    return n === null ? "—" : `第${Math.round(n)}名`;
+  }
+
+  function rankChange(v) {
+    const n = toNumber(v);
+    if (n === null || n === 0) return "—";
+    return n > 0 ? `↑ ${n}` : `↓ ${Math.abs(n)}`;
+  }
+
+  function streak(v) {
+    const n = toNumber(v);
+    if (n === null || n === 0) return "中性";
+    return n > 0 ? `连续走强 ${n}日` : `连续走弱 ${Math.abs(n)}日`;
+  }
+
+  function rotClass(v) {
+    const s = String(v || "");
+    if (s.includes("强") || s.includes("领") || s.includes("轮入")) return "strong";
+    if (s.includes("弱") || s.includes("落") || s.includes("轮出")) return "weak";
+    return "";
+  }
+
+  function switchView(view) {
+    state.view = view;
+
+    document.querySelectorAll(".nav-button").forEach(b=>{
+      b.classList.toggle("active", b.dataset.view === view);
     });
 
-    let selectedIndustry = SUMMARY.length ? SUMMARY[0].id : null;
-
-    function sectionSwitch(name) {
-      document.querySelectorAll(".tab").forEach(btn => {
-        btn.classList.toggle("active", btn.dataset.tab === name);
-      });
-      document.querySelectorAll(".section").forEach(sec => {
-        sec.classList.toggle("active", sec.id === "section-" + name);
-      });
-    }
-
-    document.querySelectorAll(".tab").forEach(btn => {
-      btn.addEventListener("click", () => sectionSwitch(btn.dataset.tab));
+    document.querySelectorAll("[data-view-section]").forEach(sec=>{
+      sec.classList.toggle("active", sec.dataset.viewSection === view);
     });
 
-    document.getElementById("jump-board").onclick = () => sectionSwitch("board");
-    document.getElementById("jump-rotation").onclick = () => sectionSwitch("rotation");
-    document.getElementById("jump-detail").onclick = () => sectionSwitch("detail");
+    if (view === "detail") {
+      requestAnimationFrame(drawChart);
+    }
+  }
 
-    function getMarketStats(rows) {
-      const valid = rows.filter(r => Number.isFinite(r.pct));
-      const count = valid.length;
-      const up = valid.filter(r => r.pct > 0).length;
-      const down = valid.filter(r => r.pct < 0).length;
-      const flat = valid.filter(r => r.pct === 0).length;
-      const avg = count ? valid.reduce((s, r) => s + r.pct, 0) / count : null;
-      const sortedUp = [...valid].sort((a, b) => b.pct - a.pct);
-      const sortedDown = [...valid].sort((a, b) => a.pct - b.pct);
-      return {
-        count, up, down, flat, avg,
-        strongest: sortedUp[0] || null,
-        weakest: sortedDown[0] || null
-      };
+  function switchMarket(market) {
+    state.market = market;
+
+    document.querySelectorAll(".market-tab").forEach(b=>{
+      b.classList.toggle("active", b.dataset.market === market);
+    });
+
+    if (market === "japan") {
+      $("marketEmptyPanel").classList.add("hidden");
+      $("japanContent").classList.remove("hidden");
+      switchView(state.view);
+    } else {
+      $("japanContent").classList.add("hidden");
+      $("marketEmptyPanel").classList.remove("hidden");
+
+      $("marketEmptyTitle").textContent =
+        market === "china" ? "中国A股暂未接入" : "美国市场暂未接入";
+
+      $("marketEmptyText").textContent =
+        "当前版本先完成日本33行业。";
+    }
+  }
+
+  function renderStatus() {
+    if (!state.data) {
+      $("dataStatusText").textContent = "未读取到数据";
+      return;
     }
 
-    function buildEmptyHTML() {
-      return `
-        <div class="empty-full">
-          <div class="empty-icon">!</div>
-          <h3>暂无数据，请先运行 Actions → Daily Update</h3>
-          <p>Daily Update 完成后，页面会自动读取 embedded-data 中的真实日本市场数据。</p>
-        </div>
-      `;
-    }
+    $("dataStatusText").textContent =
+      `${state.data.latestDate || "—"} ${state.data.latestTime || ""}`;
+  }
 
-    function renderOverview() {
-      const wrap = document.getElementById("overview-content");
-      if (!SUMMARY.length) {
-        wrap.innerHTML = buildEmptyHTML();
-        return;
-      }
+  function renderSummary() {
+    const s = state.sectors;
 
-      const stats = getMarketStats(SUMMARY);
-      const topUp = [...SUMMARY].filter(r => Number.isFinite(r.pct)).sort((a,b)=>b.pct-a.pct).slice(0,10);
-      const topDown = [...SUMMARY].filter(r => Number.isFinite(r.pct)).sort((a,b)=>a.pct-b.pct).slice(0,10);
-      const date = SUMMARY[0].date || "—";
-      const time = SUMMARY[0].time || "—";
+    const daily = s
+      .map(x=>toNumber(x.dailyPercent))
+      .filter(v=>v!==null);
 
-      wrap.innerHTML = `
-        <div class="stats-grid">
-          <div class="stat-card">
-            <div class="stat-label">行业指数覆盖</div>
-            <div class="stat-value">${stats.count}<span style="font-size:20px;color:#7d8da4"> / 33</span></div>
-            <div class="stat-sub">${stats.up} 上涨 · ${stats.down} 下跌 · ${stats.flat} 平盘</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">33行业平均涨跌</div>
-            <div class="stat-value ${clsByVal(stats.avg)}">${fmtPct(stats.avg)}</div>
-            <div class="stat-sub">观测日 ${date} · ${time}</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">当日最强行业</div>
-            <div class="stat-value ${stats.strongest ? clsByVal(stats.strongest.pct) : ''}">${stats.strongest ? fmtPct(stats.strongest.pct) : "—"}</div>
-            <div class="stat-sub">${stats.strongest ? stats.strongest.cn : "—"}</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">当日最弱行业</div>
-            <div class="stat-value ${stats.weakest ? clsByVal(stats.weakest.pct) : ''}">${stats.weakest ? fmtPct(stats.weakest.pct) : "—"}</div>
-            <div class="stat-sub">${stats.weakest ? stats.weakest.cn : "—"}</div>
-          </div>
-        </div>
+    const rising = daily.filter(v=>v>0).length;
+    const falling = daily.filter(v=>v<0).length;
+    const avg = average(daily);
 
-        <div class="grid-2">
-          <div class="panel">
-            <div class="panel-head">
-              <div>
-                <div class="panel-title">行业涨幅 TOP10</div>
-                <div class="panel-sub">日本市场 · 东证33行业</div>
-              </div>
-            </div>
-            <table class="mini-table">
-              <thead>
-                <tr><th>#</th><th>行业</th><th>涨跌幅</th><th>指数值</th></tr>
-              </thead>
-              <tbody>
-                ${topUp.map((r,i)=>`
-                  <tr class="clickable" data-open="${r.id}">
-                    <td><span class="rank-badge">${i+1}</span></td>
-                    <td>
-                      <div style="font-weight:800">${r.cn}</div>
-                      <div style="font-size:12px;color:#7b8ca3">${r.ja}</div>
-                    </td>
-                    <td class="${clsByVal(r.pct)}" style="font-weight:900">${fmtPct(r.pct)}</td>
-                    <td>${fmtNum(r.value)}</td>
-                  </tr>
-                `).join("")}
-              </tbody>
-            </table>
+    const sorted = [...s]
+      .filter(x=>toNumber(x.dailyPercent)!==null)
+      .sort((a,b)=>toNumber(b.dailyPercent)-toNumber(a.dailyPercent));
+
+    const strongest = sorted[0];
+    const weakest = sorted.at(-1);
+
+    const cards = [
+      ["最新日期", `${state.data.latestDate || "—"} ${state.data.latestTime || ""}`, `${state.data.tradingDayCount || 0}个交易日`],
+      ["行业覆盖", `${s.length} / ${state.data.industryCount || 33}`, "日本东证33行业"],
+      ["上涨 / 下跌", `<span class="up">${rising}</span> / <span class="down">${falling}</span>`, "今日涨跌统计"],
+      ["33行业平均", `<span class="${valClass(avg)}">${pct(avg)}</span>`, "当日等权平均"],
+      ["今日最强", strongest ? `${strongest._cn} <span class="up">${pct(strongest.dailyPercent)}</span>` : "—", strongest ? strongest._jp : ""],
+      ["今日最弱", weakest ? `${weakest._cn} <span class="down">${pct(weakest.dailyPercent)}</span>` : "—", weakest ? weakest._jp : ""]
+    ];
+
+    $("summaryGrid").innerHTML = cards.map(([label,value,note])=>`
+      <article class="summary-card">
+        <div class="summary-label">${label}</div>
+        <div class="summary-value compact">${value}</div>
+        <div class="summary-note">${note}</div>
+      </article>
+    `).join("");
+  }
+
+  function renderBoard() {
+    const grouped = new Map(GROUP_ORDER.map(g=>[g,[]]));
+
+    state.sectors.forEach(sec=>{
+      if (!grouped.has(sec._group)) grouped.set(sec._group,[]);
+      grouped.get(sec._group).push(sec);
+    });
+
+    $("groupBoard").innerHTML =
+      [...grouped.entries()]
+      .filter(([,items])=>items.length)
+      .map(([group,items])=>`
+        <section class="industry-group">
+          <div class="group-header">
+            <div class="group-title">${group}</div>
+            <div class="group-count">${items.length}个行业</div>
           </div>
 
-          <div class="panel">
-            <div class="panel-head">
-              <div>
-                <div class="panel-title">行业跌幅 TOP10</div>
-                <div class="panel-sub">日本市场 · 东证33行业</div>
-              </div>
-            </div>
-            <table class="mini-table">
-              <thead>
-                <tr><th>#</th><th>行业</th><th>涨跌幅</th><th>指数值</th></tr>
-              </thead>
-              <tbody>
-                ${topDown.map((r,i)=>`
-                  <tr class="clickable" data-open="${r.id}">
-                    <td><span class="rank-badge">${i+1}</span></td>
-                    <td>
-                      <div style="font-weight:800">${r.cn}</div>
-                      <div style="font-size:12px;color:#7b8ca3">${r.ja}</div>
-                    </td>
-                    <td class="${clsByVal(r.pct)}" style="font-weight:900">${fmtPct(r.pct)}</td>
-                    <td>${fmtNum(r.value)}</td>
-                  </tr>
-                `).join("")}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      `;
-
-      bindIndustryOpeners();
-    }
-
-    function renderBoard() {
-      const wrap = document.getElementById("board-content");
-      if (!SUMMARY.length) {
-        wrap.innerHTML = buildEmptyHTML();
-        return;
-      }
-
-      const keyword = (document.getElementById("industry-search").value || "").trim().toLowerCase();
-      const filterFn = row => {
-        if (!keyword) return true;
-        return [row.cn, row.ja].some(v => String(v || "").toLowerCase().includes(keyword));
-      };
-
-      const html = Object.entries(GROUPS).map(([groupName, industries]) => {
-        const rows = industries
-          .map(name => SUMMARY.find(x => x.cn === name))
-          .filter(Boolean)
-          .filter(filterFn)
-          .sort((a,b)=>(b.pct ?? -999) - (a.pct ?? -999));
-
-        if (!rows.length && keyword) return "";
-
-        const valid = rows.filter(r => Number.isFinite(r.pct));
-        const avg = valid.length ? valid.reduce((s,r)=>s+r.pct,0)/valid.length : null;
-        const up = valid.filter(r=>r.pct>0).length;
-        const down = valid.filter(r=>r.pct<0).length;
-
-        return `
-          <div class="group-card">
-            <div class="group-header">
-              <div>
-                <div class="group-name">${groupName} <span class="group-count">${rows.length}</span></div>
-                <div class="group-meta">阅读分组 · ${valid.length} 个有指数数据</div>
-              </div>
-              <div style="text-align:right">
-                <div class="group-meta">组均值 <span class="${clsByVal(avg)}" style="font-weight:900;font-size:18px">${fmtPct(avg)}</span></div>
-                <div class="group-meta">${up} 涨 / ${down} 跌</div>
-              </div>
-            </div>
-            <div class="group-body">
-              ${rows.map(r=>`
-                <div class="industry-row" data-open="${r.id}">
-                  <div class="industry-main">
-                    <div class="industry-name">${r.cn}</div>
-                    <div class="industry-ja">${r.ja}</div>
-                    <div class="industry-meta">
-                      <span class="pill blue">RS ${fmtPct(r.rs)}</span>
-                      <span class="pill ${rotationBadgeClass(r.rotation)}">${r.rotation}</span>
-                      <span class="pill">5日 ${fmtPct(r.r5)}</span>
-                      <span class="pill">20日 ${fmtPct(r.r20)}</span>
+          <div class="sector-list">
+            ${items
+              .sort((a,b)=>(toNumber(a.rank)??999)-(toNumber(b.rank)??999))
+              .map(sec=>`
+                <button class="sector-card ${toNumber(sec.dailyPercent)>0?"positive":toNumber(sec.dailyPercent)<0?"negative":""}" data-pos="${sec._pos}">
+                  <div class="sector-name-row">
+                    <div>
+                      <div class="sector-cn">${sec._cn}</div>
+                      <div class="sector-jp">${sec._jp}</div>
                     </div>
+                    <div class="daily-value ${valClass(sec.dailyPercent)}">${pct(sec.dailyPercent)}</div>
                   </div>
-                  <div class="industry-right">
-                    <div class="industry-pct ${clsByVal(r.pct)}">${fmtPct(r.pct)}</div>
-                    <div class="industry-rank">#${r.rankUp || "—"}</div>
+
+                  <div class="metric-mini-grid">
+                    <div class="metric-mini"><span>5日</span><strong class="${valClass(sec.return5d)}">${pct(sec.return5d)}</strong></div>
+                    <div class="metric-mini"><span>20日</span><strong class="${valClass(sec.return20d)}">${pct(sec.return20d)}</strong></div>
+                    <div class="metric-mini"><span>排名</span><strong>${rankText(sec.rank)}</strong></div>
+                    <div class="metric-mini"><span>RS5</span><strong class="${valClass(sec.rs5)}">${toNumber(sec.rs5)?.toFixed(2) ?? "—"}</strong></div>
+                    <div class="metric-mini"><span>RS20</span><strong class="${valClass(sec.rs20)}">${toNumber(sec.rs20)?.toFixed(2) ?? "—"}</strong></div>
+                    <div class="metric-mini"><span>排名变化</span><strong>${rankChange(sec.rankChange)}</strong></div>
                   </div>
-                </div>
-              `).join("") || `<div style="padding:16px;color:#8a98ac">没有匹配结果</div>`}
-            </div>
-          </div>
-        `;
-      }).join("");
 
-      wrap.innerHTML = `
-        <div class="board-title">
-          <div>
-            <h2>行业看板</h2>
-            <small>33 / 33 个行业种</small>
-          </div>
-          <div class="legend">点击任一行业卡片，可在“行业详情”中查看更具体数据与预留的个股排行区。</div>
-        </div>
-        <div class="group-grid">${html}</div>
-      `;
-
-      bindIndustryOpeners();
-    }
-
-    function renderRotation() {
-      const wrap = document.getElementById("rotation-content");
-      if (!SUMMARY.length) {
-        wrap.innerHTML = buildEmptyHTML();
-        return;
-      }
-
-      const rows = [...SUMMARY].sort((a,b)=>{
-        const ar = Number.isFinite(a.rs) ? a.rs : -999;
-        const br = Number.isFinite(b.rs) ? b.rs : -999;
-        return br - ar;
-      });
-
-      wrap.innerHTML = `
-        <div class="panel-head" style="margin-bottom:14px">
-          <div>
-            <div class="panel-title">强弱轮动表</div>
-            <div class="panel-sub">保留表格式视图，方便你快速看 RS / 5日 / 20日 / 轮动 / 资金偏向</div>
-          </div>
-        </div>
-        <div class="rotation-table-wrap">
-          <table class="rotation-table">
-            <thead>
-              <tr>
-                <th>排名</th>
-                <th>行业</th>
-                <th>当日涨跌</th>
-                <th>点数涨跌</th>
-                <th>RS</th>
-                <th>5日</th>
-                <th>20日</th>
-                <th>轮动状态</th>
-                <th>资金偏向</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${rows.map((r,i)=>`
-                <tr class="clickable" data-open="${r.id}">
-                  <td>${i+1}</td>
-                  <td>
-                    <div style="font-weight:900">${r.cn}</div>
-                    <div style="font-size:12px;color:#7b8ca3">${r.ja}</div>
-                  </td>
-                  <td class="${clsByVal(r.pct)}" style="font-weight:900">${fmtPct(r.pct)}</td>
-                  <td class="${clsByVal(r.points)}">${fmtNum(r.points)}</td>
-                  <td class="${clsByVal(r.rs)}">${fmtPct(r.rs)}</td>
-                  <td class="${clsByVal(r.r5)}">${fmtPct(r.r5)}</td>
-                  <td class="${clsByVal(r.r20)}">${fmtPct(r.r20)}</td>
-                  <td><span class="pill ${rotationBadgeClass(r.rotation)}">${r.rotation}</span></td>
-                  <td><span class="flow-tag ${FLOW_CLASS[r.flow] || 'flow-wait'}">${r.flow}</span></td>
-                </tr>
+                  <div class="sector-status-row">
+                    <span class="status-badge ${rotClass(sec.rotationState)}">${sec.rotationState || "待判断"}</span>
+                    <span class="streak-text">${streak(sec.streak)}</span>
+                  </div>
+                </button>
               `).join("")}
-            </tbody>
-          </table>
-        </div>
-      `;
-
-      bindIndustryOpeners();
-    }
-
-    function stockPanel(title, rows, fieldType) {
-      if (!rows || !rows.length) {
-        return `
-          <div class="stock-box">
-            <h4>${title}</h4>
-            <div class="stock-empty">
-              当前还没有接入该行业的真实个股数据源。<br>
-              这里的榜单框架已经保留，接入后会自动显示。
-            </div>
           </div>
-        `;
-      }
+        </section>
+      `).join("");
 
+    document.querySelectorAll(".sector-card[data-pos]").forEach(btn=>{
+      btn.onclick=()=>{
+        const pos=Number(btn.dataset.pos);
+        state.selectedSector=state.sectors.find(x=>x._pos===pos) || null;
+        switchView("detail");
+        renderDetail();
+      };
+    });
+  }
+
+  function renderRanking() {
+    const valid = state.sectors.filter(x=>toNumber(x.dailyPercent)!==null);
+
+    const top = [...valid]
+      .sort((a,b)=>toNumber(b.dailyPercent)-toNumber(a.dailyPercent))
+      .slice(0,10);
+
+    const bottom = [...valid]
+      .sort((a,b)=>toNumber(a.dailyPercent)-toNumber(b.dailyPercent))
+      .slice(0,10);
+
+    function row(sec,i){
       return `
-        <div class="stock-box">
-          <h4>${title}</h4>
-          <div class="stock-list">
-            ${rows.slice(0,10).map((r, i)=>`
-              <div class="stock-item">
-                <div>
-                  <div class="stock-name">${i+1}. ${r["股票名称"] || r["名称"] || "—"}</div>
-                  <div class="stock-sub">${r["股票代码"] || r["代码"] || ""}</div>
-                </div>
-                <div class="${clsByVal(num(r[fieldType]))}" style="font-weight:900">${fieldType.includes("涨跌") || fieldType.includes("收益") ? fmtPct(num(r[fieldType])) : (Number.isFinite(num(r[fieldType])) ? fmtNum(num(r[fieldType])) : "—")}</div>
-              </div>
-            `).join("")}
-          </div>
-        </div>
+        <li class="ranking-item" data-pos="${sec._pos}">
+          <span class="ranking-number ${i<3?"top-three":""}">${i+1}</span>
+          <div class="ranking-name">${sec._cn}<span class="ranking-jp"> · ${sec._jp}</span></div>
+          <div class="ranking-value ${valClass(sec.dailyPercent)}">${pct(sec.dailyPercent)}</div>
+        </li>
       `;
     }
 
-    function renderDetail() {
-      const wrap = document.getElementById("detail-content");
-      if (!SUMMARY.length) {
-        wrap.innerHTML = buildEmptyHTML();
-        return;
-      }
+    $("topRankingList").innerHTML=top.map(row).join("");
+    $("bottomRankingList").innerHTML=bottom.map(row).join("");
 
-      let row = SUMMARY.find(r => r.id === selectedIndustry);
-      if (!row) row = SUMMARY[0];
-      selectedIndustry = row.id;
+    document.querySelectorAll(".ranking-item[data-pos]").forEach(el=>{
+      el.onclick=()=>{
+        const pos=Number(el.dataset.pos);
+        state.selectedSector=state.sectors.find(x=>x._pos===pos) || null;
+        switchView("detail");
+        renderDetail();
+      };
+    });
+  }
 
-      const detailRows = RAW_DETAIL.filter(r => {
-        const key = r["一级行业"] || r["行业"] || r["industry"] || "";
-        return key === row.ja || key === row.cn;
-      });
+  function renderRotation() {
+    const sorted=[...state.sectors].sort(
+      (a,b)=>(toNumber(a.rank)??999)-(toNumber(b.rank)??999)
+    );
 
-      const repRows = RAW_REP.filter(r => {
-        const key = r["一级行业"] || r["行业"] || r["industry"] || "";
-        return key === row.ja || key === row.cn;
-      });
+    $("rotationTableBody").innerHTML=sorted.map(sec=>`
+      <tr data-pos="${sec._pos}">
+        <td>
+          <div class="table-industry-name">${sec._cn}</div>
+          <div class="table-industry-jp">${sec._jp}</div>
+        </td>
+        <td class="${valClass(sec.dailyPercent)}">${pct(sec.dailyPercent)}</td>
+        <td class="${valClass(sec.return5d)}">${pct(sec.return5d)}</td>
+        <td class="${valClass(sec.return20d)}">${pct(sec.return20d)}</td>
+        <td class="${valClass(sec.rs5)}">${toNumber(sec.rs5)?.toFixed(2) ?? "—"}</td>
+        <td class="${valClass(sec.rs20)}">${toNumber(sec.rs20)?.toFixed(2) ?? "—"}</td>
+        <td>${rankText(sec.rank)}</td>
+        <td>${rankChange(sec.rankChange)}</td>
+        <td>${streak(sec.streak)}</td>
+        <td><span class="status-badge ${rotClass(sec.rotationState)}">${sec.rotationState || "待判断"}</span></td>
+      </tr>
+    `).join("");
 
-      const actRows = RAW_ACT.filter(r => {
-        const key = r["一级行业"] || r["行业"] || r["industry"] || "";
-        return key === row.ja || key === row.cn;
-      });
+    document.querySelectorAll("#rotationTableBody tr[data-pos]").forEach(el=>{
+      el.onclick=()=>{
+        const pos=Number(el.dataset.pos);
+        state.selectedSector=state.sectors.find(x=>x._pos===pos) || null;
+        switchView("detail");
+        renderDetail();
+      };
+    });
+  }
 
-      const gainers = detailRows
-        .filter(r => Number.isFinite(num(r["涨跌幅(%)"])))
-        .sort((a,b)=>num(b["涨跌幅(%)"]) - num(a["涨跌幅(%)"]));
-      const losers = detailRows
-        .filter(r => Number.isFinite(num(r["涨跌幅(%)"])))
-        .sort((a,b)=>num(a["涨跌幅(%)"]) - num(b["涨跌幅(%)"]));
-      const turnover = detailRows
-        .filter(r => Number.isFinite(num(r["成交额"])))
-        .sort((a,b)=>num(b["成交额"]) - num(a["成交额"]));
+  function renderSelect() {
+    $("industrySelect").innerHTML=state.sectors.map(sec=>`
+      <option value="${sec._pos}">${sec._cn}（${sec._jp}）</option>
+    `).join("");
+  }
 
-      wrap.innerHTML = `
-        <div class="panel-head" style="margin-bottom:16px">
-          <div>
-            <div class="panel-title">${row.cn}</div>
-            <div class="panel-sub">${row.ja} · 点击其他行业卡片后，这里会切换详情</div>
-          </div>
-          <div class="legend">${row.date} ${row.time} · ${row.source}</div>
+  function renderDetail() {
+    const sec=state.selectedSector || state.sectors[0];
+    if (!sec) return;
+
+    state.selectedSector=sec;
+    $("industrySelect").value=String(sec._pos);
+
+    $("detailHeaderContent").innerHTML=`
+      <div class="detail-title-row">
+        <div>
+          <h3 class="detail-title">${sec._cn}</h3>
+          <div class="detail-jp-name">${sec._jp} · ${sec._group}</div>
         </div>
+        <div class="detail-daily ${valClass(sec.dailyPercent)}">${pct(sec.dailyPercent)}</div>
+      </div>
+    `;
 
-        <div class="detail-layout">
-          <div class="detail-card">
-            <div class="detail-grid">
-              <div class="detail-metric">
-                <div class="k">行业指数值</div>
-                <div class="v">${fmtNum(row.value)}</div>
-              </div>
-              <div class="detail-metric">
-                <div class="k">当日涨跌幅</div>
-                <div class="v ${clsByVal(row.pct)}">${fmtPct(row.pct)}</div>
-              </div>
-              <div class="detail-metric">
-                <div class="k">当日相对强度 RS</div>
-                <div class="v ${clsByVal(row.rs)}">${fmtPct(row.rs)}</div>
-              </div>
-              <div class="detail-metric">
-                <div class="k">资金偏向</div>
-                <div class="v" style="font-size:18px">${row.flow}</div>
-              </div>
-              <div class="detail-metric">
-                <div class="k">5日收益率</div>
-                <div class="v ${clsByVal(row.r5)}">${fmtPct(row.r5)}</div>
-              </div>
-              <div class="detail-metric">
-                <div class="k">20日收益率</div>
-                <div class="v ${clsByVal(row.r20)}">${fmtPct(row.r20)}</div>
-              </div>
-              <div class="detail-metric">
-                <div class="k">轮动状态</div>
-                <div class="v" style="font-size:18px">${row.rotation}</div>
-              </div>
-              <div class="detail-metric">
-                <div class="k">上涨排名</div>
-                <div class="v">#${row.rankUp || "—"}</div>
-              </div>
-            </div>
+    const metrics=[
+      ["5日",pct(sec.return5d)],
+      ["20日",pct(sec.return20d)],
+      ["RS5",toNumber(sec.rs5)?.toFixed(2) ?? "—"],
+      ["RS20",toNumber(sec.rs20)?.toFixed(2) ?? "—"],
+      ["当前排名",rankText(sec.rank)],
+      ["上期排名",rankText(sec.previousRank)],
+      ["排名变化",rankChange(sec.rankChange)],
+      ["连续状态",streak(sec.streak)],
+      ["强弱",sec.strength || "—"],
+      ["轮动",sec.rotationState || "待判断"]
+    ];
 
-            <div class="detail-stock-grid">
-              ${stockPanel("行业涨幅榜", gainers, "涨跌幅(%)")}
-              ${stockPanel("行业跌幅榜", losers, "涨跌幅(%)")}
-              ${stockPanel("行业成交额榜", turnover, "成交额")}
-              ${stockPanel("代表股 / 活跃股", repRows.length || actRows.length ? [...repRows, ...actRows] : [], "涨跌幅(%)")}
-            </div>
-          </div>
+    $("detailMetrics").innerHTML=metrics.map(([label,value])=>`
+      <div class="detail-metric">
+        <div class="detail-metric-label">${label}</div>
+        <div class="detail-metric-value">${value}</div>
+      </div>
+    `).join("");
 
-          <div class="detail-card">
-            <div class="panel-title" style="font-size:24px">行业说明</div>
-            <div class="panel-sub" style="margin-top:8px;line-height:1.9">
-              1）这里优先展示行业层级的真实数据：指数值、当日涨跌、RS、5日、20日、轮动状态。<br>
-              2）股票排行区已经保留，但当前你的 updater 还没有接入真实个股数据，所以先显示空状态。<br>
-              3）你后面如果接入：
-              <br>&nbsp;&nbsp;• 日本行业内股票明细
-              <br>&nbsp;&nbsp;• 日经225寄与度
-              <br>&nbsp;&nbsp;• 东证成交额/涨跌榜
-              <br>这些区域都会自动变成真实榜单。<br><br>
-              当前行业：<strong>${row.cn}</strong><br>
-              日文原名：<strong>${row.ja}</strong><br>
-              数据来源：<strong>${row.source}</strong>
-            </div>
-          </div>
-        </div>
-      `;
+    requestAnimationFrame(drawChart);
+  }
+
+  function drawChart() {
+    const canvas=$("trendCanvas");
+    const ctx=canvas.getContext("2d");
+    const sec=state.selectedSector;
+    const history=Array.isArray(state.data?.history) ? state.data.history.slice(-60) : [];
+
+    if (!sec || !history.length) {
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      return;
     }
 
-    function renderFuture() {
-      const wrap = document.getElementById("future-content");
-      const modules = [
-        ["中国A股行业", "后续接入申万行业数据，做成与日本相同的风格。"],
-        ["美国市场行业", "后续接入 GICS 行业/部门数据。"],
-        ["行业个股排行", "点击行业卡片后，展示涨幅榜 / 跌幅榜 / 成交额榜 / 活跃榜。"],
-        ["日本225寄与度", "展示正负寄与度榜单与个股寄与度详情。"],
-        ["日本225热力图", "按照构成权重或寄与度展示热力图。"],
-        ["东证TOP20", "上涨率 / 下跌率 / 成交额榜单。"],
-        ["日本225技术图", "SMA/EMA/金叉死叉等技术视图。"],
-        ["日本225历史极值", "历史最大涨幅、跌幅、最高值、最低值。"],
-        ["真实资金流向", "若后续拿到可用数据源，再替代当前‘资金偏向代理’。"]
-      ];
+    const index=state.data.industryNames
+      ? state.data.industryNames.findIndex(name=>canonicalName(name)===canonicalName(sec.name))
+      : sec._pos;
 
-      wrap.innerHTML = `
-        <div class="panel-head" style="margin-bottom:18px">
-          <div>
-            <div class="panel-title">待接入模块</div>
-            <div class="panel-sub">你前面发给我的那些重要页面，我都已经预留到产品结构里了</div>
-          </div>
-        </div>
-        <div class="future-grid">
-          ${modules.map(item=>`
-            <div class="future-card">
-              <div class="future-head">
-                <div class="future-title">${item[0]}</div>
-                <span class="badge">待接入</span>
-              </div>
-              <div class="panel-sub" style="margin-top:12px;line-height:1.8">${item[1]}</div>
-            </div>
-          `).join("")}
-        </div>
-      `;
+    const values=history.map(item=>Array.isArray(item.values) ? toNumber(item.values[index]) : null);
+    const averages=history.map(item=>Array.isArray(item.values) ? average(item.values) : null);
+
+    const rect=canvas.parentElement.getBoundingClientRect();
+    const dpr=Math.min(2,window.devicePixelRatio||1);
+
+    canvas.width=rect.width*dpr;
+    canvas.height=rect.height*dpr;
+
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+
+    const w=rect.width;
+    const h=rect.height;
+    ctx.clearRect(0,0,w,h);
+
+    const all=[...values,...averages].filter(v=>v!==null);
+    if (!all.length) return;
+
+    const maxAbs=Math.max(1,...all.map(v=>Math.abs(v)))*1.2;
+    const pad=40;
+
+    function x(i){
+      return pad+(w-2*pad)*(i/Math.max(1,values.length-1));
     }
 
-    function bindIndustryOpeners() {
-      document.querySelectorAll("[data-open]").forEach(el => {
-        el.onclick = () => {
-          selectedIndustry = el.getAttribute("data-open");
-          renderDetail();
-          sectionSwitch("detail");
-        };
+    function y(v){
+      return pad+(h-2*pad)*((maxAbs-v)/(2*maxAbs));
+    }
+
+    ctx.strokeStyle="#e6ebf2";
+    ctx.lineWidth=1;
+
+    for(let i=0;i<5;i++){
+      const val=maxAbs-(2*maxAbs)*(i/4);
+      const yy=y(val);
+      ctx.beginPath();
+      ctx.moveTo(pad,yy);
+      ctx.lineTo(w-pad,yy);
+      ctx.stroke();
+    }
+
+    function draw(series,color,width){
+      ctx.beginPath();
+      ctx.strokeStyle=color;
+      ctx.lineWidth=width;
+      let started=false;
+
+      series.forEach((v,i)=>{
+        if(v===null){
+          started=false;
+          return;
+        }
+
+        if(!started){
+          ctx.moveTo(x(i),y(v));
+          started=true;
+        } else {
+          ctx.lineTo(x(i),y(v));
+        }
       });
+
+      ctx.stroke();
     }
 
-    function renderAll() {
-      renderOverview();
-      renderBoard();
-      renderRotation();
-      renderDetail();
-      renderFuture();
+    draw(averages,"#2563eb",2);
+    draw(values,"#f97316",2.5);
+  }
+
+  function renderAll() {
+    renderStatus();
+
+    if (!state.data || !state.sectors.length) {
+      $("noDataPanel").classList.remove("hidden");
+      $("japanContent").classList.add("hidden");
+      return;
     }
 
-    document.getElementById("industry-search").addEventListener("input", renderBoard);
+    $("noDataPanel").classList.add("hidden");
+    $("japanContent").classList.remove("hidden");
 
-    renderAll();
-  </script>
+    renderSummary();
+    renderBoard();
+    renderRanking();
+    renderRotation();
+    renderSelect();
+    renderDetail();
+  }
+
+  document.querySelectorAll(".nav-button").forEach(btn=>{
+    btn.onclick=()=>switchView(btn.dataset.view);
+  });
+
+  document.querySelectorAll(".market-tab").forEach(btn=>{
+    btn.onclick=()=>switchMarket(btn.dataset.market);
+  });
+
+  $("industrySelect").onchange=e=>{
+    const pos=Number(e.target.value);
+    state.selectedSector=state.sectors.find(x=>x._pos===pos) || null;
+    renderDetail();
+  };
+
+  window.addEventListener("resize",()=>{
+    if(state.view==="detail" && state.market==="japan"){
+      drawChart();
+    }
+  });
+
+  state.data=readData();
+
+  if(state.data){
+    state.sectors=(state.data.sectors||[]).map(normalizeSector);
+    state.selectedSector=
+      state.sectors.find(x=>toNumber(x.rank)===1)
+      ||state.sectors[0]
+      ||null;
+  }
+
+  renderAll();
+})();
+</script>
+
 </body>
 </html>
