@@ -268,6 +268,16 @@ function cnSectorCard(row, metrics) {
 // Test: mismatched stock date, unknown/zero expected count, missing base date, and zero changes.
 
 function marketColors(){document.body.dataset.market=state.market;const note=document.querySelector(".aside-note");if(note)note.innerHTML=(state.market==='china'?'红涨 · 绿跌':'绿涨 · 红跌')+'<br>平盘 / 缺数为灰色<br>各市场独立日期';}
+
+function cnPeriodOverview(day,days,selected){
+ const rows=(selected?[selected]:day.rows).map(r=>({row:r,m:cnCardMetrics(r,days,day.date,'',null)}));
+ return `<div class="period-overview" aria-label="板块当日及5日20日涨跌">${[['当日','indexChange'],['近5个交易日','indexReturn5'],['近20个交易日','indexReturn20']].map(([label,key])=>{
+ const items=rows.map(x=>({name:x.row.name,value:x.m[key]})),good=items.filter(x=>valid(x.value));
+ if(selected){const value=items[0]?.value;return `<div class="period-tile"><span>${label} · ${esc(selected.name)}</span><strong class="${tone(value)}">${valid(value)?(value>0?'↑ ':value<0?'↓ ':'平 ')+pct(value):'—'}</strong><small>${valid(value)?(key==='indexChange'?'指数当日涨跌':'指数累计涨跌'):'历史样本不足'}</small></div>`;}
+ const up=good.filter(x=>x.value>0).length,down=good.filter(x=>x.value<0).length,flat=good.length-up-down;
+ return `<details class="period-tile"><summary><span>${label} · 行业涨跌</span><strong>${good.length?`<b class="up">↑ ${up}</b> <b class="down">↓ ${down}</b>`:'—'}</strong><small>平 ${flat} · 有效 ${good.length}/31 · 点击看板块</small></summary><ul class="period-sectors">${items.sort((a,b)=>(valid(b.value)?b.value:-Infinity)-(valid(a.value)?a.value:-Infinity)).map(x=>`<li><span>${esc(x.name)}</span><b class="${tone(x.value)}">${pct(x.value)}</b></li>`).join('')}</ul></details>`;
+ }).join('')}<div class="period-footnote">5日／20日为截至观测日期的累计涨跌，非均线；不受“对比日期”影响。</div></div>`;
+}
 function renderUS(){
  marketColors();
  const china=state.market==='china', marketName=china?'中国 A股':'美国', count=china?31:19, source=china?'https://www.swsresearch.com/institute_sw/allIndex/releasedIndex':'https://nikkei225jp.com/nasdaq/';
@@ -282,7 +292,7 @@ function renderUS(){
  if(!earlier.some(x=>x.date===usBase))usBase=earlier.at(-1)?.date||'';
  const base=days.find(x=>x.date===usBase), selected=d.rows.find(x=>x.code===usSelected);
  $('status').innerHTML=`<div class="status ${bundle.status.state==='success'?'':'warn'}"><b>${bundle.status.state==='success'?'● 已读取来源网页':'● 取数异常，保留旧快照'}</b><span>来源日期 ${esc(d.date)} · ${marketName}市场</span><span>归档 ${days.length} 日 · ${count} 个指数</span></div>`;
- $('controls').innerHTML=`<div class="toolbar"><label>观测日期<select id="usDate">${[...days].reverse().map(x=>`<option ${x.date===usDate?'selected':''}>${x.date}</option>`).join('')}</select></label><label>对比日期<select id="usBase"><option value="">无更早快照</option>${[...earlier].reverse().map(x=>`<option ${x.date===usBase?'selected':''}>${x.date}</option>`).join('')}</select></label><a href="${source}" target="_blank" rel="noopener noreferrer">查看来源网页 ↗</a></div>`;
+ $('controls').innerHTML=`<div class="toolbar"><label>观测日期<select id="usDate">${[...days].reverse().map(x=>`<option ${x.date===usDate?'selected':''}>${x.date}</option>`).join('')}</select></label><label>对比日期<select id="usBase"><option value="">无更早快照</option>${[...earlier].reverse().map(x=>`<option ${x.date===usBase?'selected':''}>${x.date}</option>`).join('')}</select></label><a href="${source}" target="_blank" rel="noopener noreferrer">查看来源网页 ↗</a>${china?cnPeriodOverview(d,days,selected):''}</div>`;
  const note=china?'<div class="notice">申万官方行业指数日报；7个分组仅方便阅读，不是新增分类层级。31行业始终常显。卡片主涨跌和5／20日为申万指数表现（点位比值），不是个股等权收益；上涨／下跌家数来自同日有效个股，灰色含平盘和缺数。对比差是两日各自日涨跌幅之差。个股与成交量／成交额／涨幅排行按实际覆盖展示；原代表／活跃评分仍缺字段。</div>':'<div class="notice">来源标注的行业指数涨跌，不是行业个股等权统计。两套分类分别排名。仅保存实际获取的日期，不补造历史；代表TOP10、活跃TOP10及真实成交额尚缺。网页未提供完整时间戳和最终收盘标志，按来源日期展示快照。</div>';
  if(state.view==='help'&&china){$('content').innerHTML=note+'<section class="panel"><h2>中国市场数据口径</h2><p>来源：申万宏源研究官方指数日报。日期取源数据bargaindate，指数点位为closeindex，日涨跌幅为markup。行情日期与抓取时间分别保存；缺数、重复行业或日期异常时拒绝新数据，保留旧归档。北京时间每日19:17、21:17自动尝试更新。历史只保存实际取回的完整31行业日报。</p><p>个股来源新浪行情，成交量单位股、成交额单位元。按申万指数当前成分采集；停牌或缺数不参与排行。原代表／活跃分所需的股本、复权历史及筛选条件尚未齐全；当前展示真实成交量、成交额和涨幅榜。个股历史与上榜记录从归档之日起逐日积累。</p></section>';return;}
  if(state.view==='help'){$('content').innerHTML=note+'<section class="panel"><h2>美股数据口径</h2><p>来源：nikkei225jp.com 的行业指数栏目。北京时间每天19:17、21:17随现有任务更新。来源日期与抓取时间分开保存；只显示已获取的记录。对比值为两个日期各自当日涨跌幅之差（百分点），不是区间累计收益。原站股票卖买额属于估算，未纳入本看板。</p></section>';return;}
