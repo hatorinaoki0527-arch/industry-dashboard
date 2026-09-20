@@ -279,11 +279,35 @@ function cnPeriodOverview(day,days,selected){
  return `<details class="period-tile"><summary><span>${label} · 行业涨跌</span><strong>${good.length?`<b class="up">↑ ${up}</b> <b class="down">↓ ${down}</b>`:'—'}</strong><small>平 ${flat} · 有效 ${good.length}/31 · 点击看板块</small></summary><ul class="period-sectors">${items.sort((a,b)=>(valid(b.value)?b.value:-Infinity)-(valid(a.value)?a.value:-Infinity)).map(x=>`<li><span>${esc(x.name)}</span><b class="${tone(x.value)}">${pct(x.value)}</b></li>`).join('')}</ul></details>`;
  }).join('')}<div class="period-footnote">5日／10日／20日为截至观测日期的累计涨跌，非均线；不受“对比日期”影响。</div></div>`;
 }
+
+function cnQuickMatches(rows,query){
+ const q=query.trim().toLowerCase();if(!q)return [];
+ return rows.filter(r=>String(r.code).toLowerCase().includes(q)||String(r.name).toLowerCase().includes(q)).sort((a,b)=>{
+ const exact=r=>String(r.code).toLowerCase()===q||String(r.code).slice(2)===q||r.name===query.trim();
+ return Number(exact(b))-Number(exact(a))||String(a.code).localeCompare(String(b.code));
+ });
+}
+function cnQuickResults(){
+ const box=$('cnQuickResults'),input=$('cnQuickInput');if(!box||!input||!DATA)return;
+ const q=input.value.trim();if(!q){box.hidden=true;box.innerHTML='';return;}
+ const day=DATA.cnStocks?.days?.find(d=>d.date===usDate);box.hidden=false;
+ if(!day){box.innerHTML='<p role="status">所选日期没有个股归档，请选择有数据的日期。</p>';return;}
+ const hits=cnQuickMatches(day.rows||[],q);
+ box.innerHTML=`<p role="status">${hits.length?`找到 ${hits.length} 只${hits.length>8?'，先显示8只，请继续输入缩小范围':''}`:'未找到股票，请核对代码或名称'} · ${esc(usDate)}</p>`+hits.slice(0,8).map(r=>`<button type="button" data-cn-quick="${esc(r.code)}"><span><b>${esc(r.name)}</b><small>${esc(r.code)} · ${esc(r.sectorName)}</small></span><span class="${tone(r.change)}">${pct(r.change)}<small>¥${fmt(r.close)}</small></span></button>`).join('');
+}
+function cnQuickOpen(code){
+ const row=DATA.cnStocks?.days?.find(d=>d.date===usDate)?.rows.find(r=>r.code===code);if(!row)return;
+ cnStockCode=code;usSelected='';state.view='stocks';renderUS();window.scrollTo(0,0);
+}
+document.addEventListener('input',e=>{if(e.target.id==='cnQuickInput')cnQuickResults();});
+document.addEventListener('submit',e=>{if(e.target.id!=='cnQuickForm')return;e.preventDefault();cnQuickResults();const hits=$('cnQuickResults')?.querySelectorAll('[data-cn-quick]');if(hits?.length===1)cnQuickOpen(hits[0].dataset.cnQuick);});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&e.target.closest('#cnQuickForm')){$('cnQuickResults').hidden=true;$('cnQuickInput').focus();}});
+document.addEventListener('click',e=>{const b=e.target.closest('[data-cn-quick]');if(b&&DATA&&state.market==='china')cnQuickOpen(b.dataset.cnQuick);else if(!e.target.closest('#cnQuickForm')&&$('cnQuickResults'))$('cnQuickResults').hidden=true;});
 function renderUS(){
  marketColors();
  const china=state.market==='china', marketName=china?'中国 A股':'美国', count=china?31:19, source=china?'https://www.swsresearch.com/institute_sw/allIndex/releasedIndex':'https://nikkei225jp.com/nasdaq/';
  const bundle=china?DATA.cnIndustries:DATA.usIndustries, days=bundle?.days||[];
- $('heading').innerHTML=`<div class="page-head"><div><div class="eyebrow">${china?'CHINA / SHENWAN':'USA / INDUSTRY INDICES'}</div><h1>${marketName}行业指数</h1><p class="subtitle">${china?'申万 2021 · 31 个一级行业 · 官方日报':'S&P 500 与 NASDAQ 分组观察 · 来源网页快照'}</p></div></div>`;
+ $('heading').innerHTML=`<div class="page-head"><div><div class="eyebrow">${china?'CHINA / SHENWAN':'USA / INDUSTRY INDICES'}</div><h1>${marketName}行业指数</h1><p class="subtitle">${china?'申万 2021 · 31 个一级行业 · 官方日报':'S&P 500 与 NASDAQ 分组观察 · 来源网页快照'}</p></div>${china?'<form id="cnQuickForm" class="cn-quick-search" role="search"><label for="cnQuickInput">股票搜索</label><div class="cn-quick-field"><input id="cnQuickInput" type="search" placeholder="股票名称或代码，如紫光 / 000938" autocomplete="off"><button type="submit" class="button">搜索</button></div><div id="cnQuickResults" class="cn-quick-results" hidden></div></form>':''}</div>`;
  $('status').innerHTML='';$('controls').innerHTML='';
  document.querySelectorAll('[data-market]').forEach(b=>b.classList.toggle('active',b.dataset.market===state.market));
  document.querySelectorAll('nav [data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===state.view));
