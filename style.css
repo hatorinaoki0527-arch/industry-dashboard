@@ -9,3 +9,8 @@
 .cn-stock-row .number{white-space:nowrap}.cn-stock-row.head .number{font-size:10px}
 .cn-sector-card .card-bottom{gap:8px;flex-wrap:wrap}
 @media(max-width:760px){.cn-stock-row{grid-template-columns:22px minmax(90px,1.4fr) minmax(66px,.8fr) minmax(82px,1fr);gap:6px}.cn-stock-row .number{font-size:11px}.cn-stock-row.head>span:last-child{display:none}.segments{flex-wrap:wrap}}
+
+/* A-shares follow red-up / green-down; other markets keep their palette. */
+body[data-market="china"]{--up:#bc5054;--down:#148151}
+body[data-market="china"] .breadth .green{background:#d59092}
+body[data-market="china"] .breadth .red{background:#4da97d}
