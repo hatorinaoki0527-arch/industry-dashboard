@@ -1,37 +1,40 @@
-name: Daily Update
-
+name: Publish encrypted dashboard
 on:
-  workflow_dispatch:
-  schedule:
-    - cron: "30 8 * * *"
-
+  push:
+    branches: ['delivery/*']
 permissions:
   contents: write
-
+  pages: write
+  id-token: write
+concurrency:
+  group: encrypted-pages
+  cancel-in-progress: false
 jobs:
-  update:
+  publish:
     runs-on: ubuntu-latest
-
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          python-version: "3.12"
-
-      - name: Run updater
-        run: python updater/update.py
-
-      - name: Commit and push index.html if changed
+          node-version: '22'
+      - name: Check ciphertext and stage only public assets
         run: |
-          if git diff --quiet -- index.html; then
-            echo "index.html 没有变化，无需提交。"
-          else
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add index.html
-            git commit -m "chore: daily update index.html"
-            git push
-          fi
+          node --check app.js
+          node -e "const v=require('./vault.json');if(v.version!==1||v.cipher!=='AES-256-GCM'||v.iterations!==600000||Object.keys(v).sort().join(',')!=='cipher,compression,data,iterations,iv,kdf,salt,version')process.exit(1)"
+          mkdir site
+          cp index.html app.js style.css meta.js reference.js favicon.svg vault.json site/
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+          retention-days: 1
+      - name: Deploy
+        id: deploy
+        uses: actions/deploy-pages@v4
+      - name: Remove temporary delivery branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/heads/$GITHUB_REF_NAME"
