@@ -230,6 +230,7 @@ function cnCardMetrics(indexRow, indexDays, currentDate, baseDate, stockDay) {
   return {
     indexChange,
     indexReturn5: periodReturn(5),
+    indexReturn10: periodReturn(10),
     indexReturn20: periodReturn(20),
     indexDiff,
     stockArchived,
@@ -271,12 +272,12 @@ function marketColors(){document.body.dataset.market=state.market;const note=doc
 
 function cnPeriodOverview(day,days,selected){
  const rows=(selected?[selected]:day.rows).map(r=>({row:r,m:cnCardMetrics(r,days,day.date,'',null)}));
- return `<div class="period-overview" aria-label="板块当日及5日20日涨跌">${[['当日','indexChange'],['近5个交易日','indexReturn5'],['近20个交易日','indexReturn20']].map(([label,key])=>{
+ return `<div class="period-overview" aria-label="板块当日及5日10日20日涨跌">${[['当日','indexChange'],['近5个交易日','indexReturn5'],['近10个交易日','indexReturn10'],['近20个交易日','indexReturn20']].map(([label,key])=>{
  const items=rows.map(x=>({name:x.row.name,value:x.m[key]})),good=items.filter(x=>valid(x.value));
  if(selected){const value=items[0]?.value;return `<div class="period-tile"><span>${label} · ${esc(selected.name)}</span><strong class="${tone(value)}">${valid(value)?(value>0?'↑ ':value<0?'↓ ':'平 ')+pct(value):'—'}</strong><small>${valid(value)?(key==='indexChange'?'指数当日涨跌':'指数累计涨跌'):'历史样本不足'}</small></div>`;}
  const up=good.filter(x=>x.value>0).length,down=good.filter(x=>x.value<0).length,flat=good.length-up-down;
  return `<details class="period-tile"><summary><span>${label} · 行业涨跌</span><strong>${good.length?`<b class="up">↑ ${up}</b> <b class="down">↓ ${down}</b>`:'—'}</strong><small>平 ${flat} · 有效 ${good.length}/31 · 点击看板块</small></summary><ul class="period-sectors">${items.sort((a,b)=>(valid(b.value)?b.value:-Infinity)-(valid(a.value)?a.value:-Infinity)).map(x=>`<li><span>${esc(x.name)}</span><b class="${tone(x.value)}">${pct(x.value)}</b></li>`).join('')}</ul></details>`;
- }).join('')}<div class="period-footnote">5日／20日为截至观测日期的累计涨跌，非均线；不受“对比日期”影响。</div></div>`;
+ }).join('')}<div class="period-footnote">5日／10日／20日为截至观测日期的累计涨跌，非均线；不受“对比日期”影响。</div></div>`;
 }
 function renderUS(){
  marketColors();
