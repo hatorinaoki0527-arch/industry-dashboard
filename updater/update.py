@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import html as html_lib
+import datetime as dt
+import html
 import json
 import math
 import os
@@ -9,45 +10,41 @@ import re
 import stat
 import sys
 import tempfile
-from datetime import datetime, timezone
-from http.cookiejar import CookieJar
+import urllib.parse
+import urllib.request
 from html.parser import HTMLParser
+from http.cookiejar import CookieJar
 from pathlib import Path
-from urllib.parse import (
-    urljoin,
-    urlsplit,
-    urlunsplit,
-    urldefrag,
-)
-from urllib.request import (
-    HTTPCookieProcessor,
-    Request,
-    build_opener,
-)
 
 
 ENTRY_URL = "https://nikkei225jp.com/chart/gyoushu.php"
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+INDEX_PATH = PROJECT_ROOT / "index.html"
+
 INDUSTRY_COUNT = 33
-MAX_HISTORY_DAYS = 90
-MIN_HISTORY_DAYS = 21
-MAX_HTTP_BYTES = 20 * 1024 * 1024
-MAX_SUPPORT_SCRIPTS = 64
+MIN_TRADING_DAYS = 21
+MAX_TRADING_DAYS = 90
+MAX_DOWNLOAD_BYTES = 20 * 1024 * 1024
 
 USER_AGENT = (
-    "Mozilla/5.0 (X11; Linux x86_64) "
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
     "AppleWebKit/537.36 (KHTML, like Gecko) "
     "Chrome/124.0 Safari/537.36"
 )
 
-ROOT_DIR = Path(__file__).resolve().parent.parent
-INDEX_PATH = ROOT_DIR / "index.html"
+PAST_FILENAME = "country_jp_gyo_past.js"
+CURRENT_FILENAME = "country_jp_gyo.js"
+
+ENTRY_PARTS = urllib.parse.urlsplit(ENTRY_URL)
+ENTRY_HOSTNAME = (ENTRY_PARTS.hostname or "").lower()
 
 
 class UpdateError(RuntimeError):
     pass
 
 
-class _ScriptSrcParser(HTMLParser):
+class ScriptSourceParser(HTMLParser):
     def __init__(self):
         super().__init__(convert_charrefs=True)
         self.sources = []
@@ -58,69 +55,82 @@ class _ScriptSrcParser(HTMLParser):
 
         for key, value in attrs:
             if key.lower() == "src" and value:
-                self.sources.append(value.strip())
+                self.sources.append(value)
                 break
 
 
-def normalize_site_host(hostname):
-    host = (hostname or "").lower().rstrip(".")
-    if host.startswith("www."):
-        host = host[4:]
-    return host
+def build_http_opener():
+    cookie_jar = CookieJar()
+    return urllib.request.build_opener(
+        urllib.request.HTTPCookieProcessor(cookie_jar)
+    )
 
 
-def is_same_site(url, reference_url=ENTRY_URL):
-    candidate_host = normalize_site_host(urlsplit(url).hostname)
-    reference_host = normalize_site_host(urlsplit(reference_url).hostname)
-    return bool(candidate_host and candidate_host == reference_host)
-
-
-def normalize_url(reference, base_url):
-    if not reference:
-        return None
-
-    reference = html_lib.unescape(reference.strip())
-    reference = reference.replace("\\/", "/")
-    reference = reference.strip("\"' \t\r\n")
-
-    if not reference or reference.lower().startswith(("javascript:", "data:")):
-        return None
-
-    absolute = urljoin(base_url, reference)
-    absolute, _fragment = urldefrag(absolute)
-
-    parts = urlsplit(absolute)
-    if parts.scheme.lower() not in ("http", "https") or not parts.netloc:
-        return None
-
-    return absolute
-
-
-def decode_http_body(body, headers):
-    encodings = []
-
-    declared = None
+def is_same_site(url):
     try:
-        declared = headers.get_content_charset()
-    except Exception:
-        declared = None
+        parts = urllib.parse.urlsplit(url)
+    except ValueError:
+        return False
 
-    if declared:
-        encodings.append(declared)
+    return (
+        parts.scheme.lower() in ("http", "https")
+        and (parts.hostname or "").lower() == ENTRY_HOSTNAME
+    )
 
-    head = body[:4096]
-    meta_match = re.search(
+
+def normalize_resource_url(reference, base_url):
+    if not reference:
+        raise UpdateError("发现了空的资源 URL")
+
+    reference = html.unescape(reference.strip())
+    reference = reference.replace("\\/", "/")
+
+    absolute = urllib.parse.urljoin(base_url, reference)
+    parts = urllib.parse.urlsplit(absolute)
+
+    if parts.scheme.lower() not in ("http", "https"):
+        raise UpdateError("不支持的资源 URL 协议: {}".format(absolute))
+
+    return urllib.parse.urlunsplit(
+        (parts.scheme, parts.netloc, parts.path, parts.query, "")
+    )
+
+
+def detect_declared_charset(raw, headers):
+    charset = None
+
+    try:
+        charset = headers.get_content_charset()
+    except (AttributeError, LookupError):
+        charset = None
+
+    if charset:
+        return charset
+
+    head = raw[:4096]
+    match = re.search(
         br"""charset\s*=\s*["']?\s*([A-Za-z0-9._-]+)""",
         head,
         flags=re.IGNORECASE,
     )
-    if meta_match:
-        try:
-            encodings.append(meta_match.group(1).decode("ascii"))
-        except UnicodeDecodeError:
-            pass
 
-    encodings.extend(
+    if match:
+        try:
+            return match.group(1).decode("ascii")
+        except UnicodeDecodeError:
+            return None
+
+    return None
+
+
+def decode_response(raw, headers, url):
+    candidates = []
+
+    declared = detect_declared_charset(raw, headers)
+    if declared:
+        candidates.append(declared)
+
+    candidates.extend(
         [
             "utf-8-sig",
             "utf-8",
@@ -131,170 +141,195 @@ def decode_http_body(body, headers):
     )
 
     tried = set()
-    errors = []
 
-    for encoding in encodings:
+    for encoding in candidates:
         normalized = encoding.lower()
         if normalized in tried:
             continue
         tried.add(normalized)
 
         try:
-            return body.decode(encoding)
-        except (LookupError, UnicodeDecodeError) as exc:
-            errors.append("{}: {}".format(encoding, exc))
+            return raw.decode(encoding)
+        except (UnicodeDecodeError, LookupError):
+            continue
 
-    raise UpdateError(
-        "无法解码响应内容；尝试过的编码均失败：{}".format("; ".join(errors))
-    )
+    raise UpdateError("无法解码网络响应: {}".format(url))
 
 
 def fetch_text(opener, url):
-    request = Request(
+    request = urllib.request.Request(
         url,
         headers={
             "User-Agent": USER_AGENT,
             "Accept": (
                 "text/html,application/javascript,text/javascript,"
-                "application/json;q=0.9,*/*;q=0.8"
+                "application/xhtml+xml,*/*;q=0.8"
             ),
-            "Accept-Language": "ja,en-US;q=0.8,en;q=0.6",
             "Referer": ENTRY_URL,
-            "Connection": "close",
+            "Cache-Control": "no-cache",
+            "Pragma": "no-cache",
         },
         method="GET",
     )
 
     try:
         with opener.open(request, timeout=30) as response:
-            status = response.getcode()
-            if status is not None and not 200 <= status < 300:
-                raise UpdateError("HTTP 状态异常：{} -> {}".format(url, status))
+            status = getattr(response, "status", 200)
 
-            body = response.read(MAX_HTTP_BYTES + 1)
-            if len(body) > MAX_HTTP_BYTES:
-                raise UpdateError("响应内容过大：{}".format(url))
+            if status != 200:
+                raise UpdateError(
+                    "HTTP 请求失败，状态码 {}: {}".format(status, url)
+                )
 
-            final_url = response.geturl()
-            text = decode_http_body(body, response.headers)
-            return final_url, text
+            raw = response.read(MAX_DOWNLOAD_BYTES + 1)
+
+            if len(raw) > MAX_DOWNLOAD_BYTES:
+                raise UpdateError("网络响应过大: {}".format(url))
+
+            return decode_response(raw, response.headers, url)
+
     except UpdateError:
         raise
     except Exception as exc:
-        raise UpdateError("网络请求失败：{}；{}".format(url, exc)) from exc
+        raise UpdateError(
+            "网络请求失败 {}: {}".format(url, exc)
+        ) from exc
 
 
-def discover_script_urls(text, base_url):
-    parser = _ScriptSrcParser()
+def extract_same_site_script_urls(entry_html):
+    parser = ScriptSourceParser()
+
     try:
-        parser.feed(text)
-        parser.close()
+        parser.feed(entry_html)
     except Exception as exc:
-        raise UpdateError("入口 HTML 的 script 标签解析失败：{}".format(exc)) from exc
+        raise UpdateError(
+            "入口页 script 标签解析失败: {}".format(exc)
+        ) from exc
 
-    discovered = []
+    urls = []
     seen = set()
 
     for source in parser.sources:
-        url = normalize_url(source, base_url)
-        if url and url not in seen:
-            seen.add(url)
-            discovered.append(url)
+        try:
+            url = normalize_resource_url(source, ENTRY_URL)
+        except UpdateError:
+            continue
 
-    return discovered
+        if not is_same_site(url) or url in seen:
+            continue
+
+        seen.add(url)
+        urls.append(url)
+
+    return urls
 
 
-def find_javascript_references(text, base_url):
-    pattern = re.compile(
-        r"""(["'])([^"'\\\r\n]+?\.js(?:\?[^"'\\\s<>]*)?)\1""",
-        flags=re.IGNORECASE,
+PAST_REFERENCE_RE = re.compile(
+    r"""
+    (?P<ref>
+        (?:
+            (?:https?:)?//
+            |
+            (?:\.\.?/)+
+            |
+            /
+        )?
+        [A-Za-z0-9_%~./:@+\-]*
+        country_jp_gyo_past\.js
+        (?:\?[^\\'"<>\s\)]*)?
     )
-
-    discovered = []
-    seen = set()
-
-    for match in pattern.finditer(text):
-        url = normalize_url(match.group(2), base_url)
-        if url and url not in seen:
-            seen.add(url)
-            discovered.append(url)
-
-    return discovered
+    """,
+    flags=re.IGNORECASE | re.VERBOSE,
+)
 
 
 def find_past_references(text, base_url):
-    pattern = re.compile(
-        r"""
-        (?P<ref>
-            (?:
-                (?:https?:)?//[^\s"'<>]*
-                |
-                [A-Za-z0-9_./~%-]*
-            )
-            country_jp_gyo_past\.js
-            (?:\?[^'"<>\s\\]*)?
-        )
-        """,
-        flags=re.IGNORECASE | re.VERBOSE,
-    )
-
-    discovered = []
+    searchable = text.replace("\\/", "/")
+    results = []
     seen = set()
 
-    for match in pattern.finditer(text):
-        reference = match.group("ref").rstrip("),;]")
-        url = normalize_url(reference, base_url)
-        if not url:
+    for match in PAST_REFERENCE_RE.finditer(searchable):
+        reference = match.group("ref")
+
+        try:
+            url = normalize_resource_url(reference, base_url)
+        except UpdateError:
             continue
 
-        if not is_target_script(url, "country_jp_gyo_past.js"):
+        if not is_same_site(url):
+            continue
+
+        path = urllib.parse.urlsplit(url).path.lower()
+
+        if not path.endswith("/" + PAST_FILENAME) and not path.endswith(
+            PAST_FILENAME
+        ):
             continue
 
         if url not in seen:
             seen.add(url)
-            discovered.append(url)
+            results.append(url)
 
-    return discovered
+    return results
 
 
-def is_target_script(url, filename):
-    path = urlsplit(url).path
-    basename = path.rsplit("/", 1)[-1]
-    return basename.lower() == filename.lower()
+def discover_past_url(entry_html, fetched_scripts):
+    candidates = []
+    seen = set()
+
+    def add_candidates(items):
+        for item in items:
+            if item not in seen:
+                seen.add(item)
+                candidates.append(item)
+
+    add_candidates(find_past_references(entry_html, ENTRY_URL))
+
+    for script_url, script_text in fetched_scripts.items():
+        add_candidates(find_past_references(script_text, script_url))
+
+    if not candidates:
+        raise UpdateError(
+            "未能从入口页或同站脚本中发现 {}".format(PAST_FILENAME)
+        )
+
+    return candidates[0]
 
 
 def derive_current_url(past_url):
-    parts = urlsplit(past_url)
+    parts = urllib.parse.urlsplit(past_url)
+
     new_path, replacement_count = re.subn(
-        r"country_jp_gyo_past\.js$",
-        "country_jp_gyo.js",
+        re.escape(PAST_FILENAME) + r"$",
+        CURRENT_FILENAME,
         parts.path,
         count=1,
         flags=re.IGNORECASE,
     )
 
     if replacement_count != 1:
-        raise UpdateError("无法从 past URL 派生 current URL：{}".format(past_url))
-
-    return urlunsplit(
-        (
-            parts.scheme,
-            parts.netloc,
-            new_path,
-            parts.query,
-            parts.fragment,
+        raise UpdateError(
+            "无法从 past URL 派生 current URL: {}".format(past_url)
         )
+
+    current_url = urllib.parse.urlunsplit(
+        (parts.scheme, parts.netloc, new_path, parts.query, parts.fragment)
     )
 
+    if not is_same_site(current_url):
+        raise UpdateError("派生出的 current URL 不是同站 URL")
 
-def decode_js_string(value):
-    result = []
+    return current_url
+
+
+def decode_javascript_string(value):
+    output = []
     index = 0
     length = len(value)
 
     simple_escapes = {
-        '"': '"',
         "'": "'",
+        '"': '"',
         "\\": "\\",
         "/": "/",
         "b": "\b",
@@ -303,1287 +338,1317 @@ def decode_js_string(value):
         "r": "\r",
         "t": "\t",
         "v": "\v",
-        "0": "\0",
     }
 
     while index < length:
         char = value[index]
 
         if char != "\\":
-            result.append(char)
+            output.append(char)
             index += 1
             continue
 
         index += 1
+
         if index >= length:
-            raise UpdateError("JS 字符串以未完成的转义符结尾")
+            raise UpdateError("JavaScript 字符串末尾存在无效转义")
 
-        escaped = value[index]
-
-        if escaped in simple_escapes:
-            result.append(simple_escapes[escaped])
-            index += 1
-            continue
-
-        if escaped == "x":
-            digits = value[index + 1:index + 3]
-            if len(digits) != 2 or not re.fullmatch(r"[0-9A-Fa-f]{2}", digits):
-                raise UpdateError("JS 字符串包含无效的 \\x 转义")
-            result.append(chr(int(digits, 16)))
-            index += 3
-            continue
-
-        if escaped == "u":
-            digits = value[index + 1:index + 5]
-            if len(digits) != 4 or not re.fullmatch(r"[0-9A-Fa-f]{4}", digits):
-                raise UpdateError("JS 字符串包含无效的 \\u 转义")
-
-            codepoint = int(digits, 16)
-            index += 5
-
-            if (
-                0xD800 <= codepoint <= 0xDBFF
-                and value[index:index + 2] == "\\u"
-            ):
-                low_digits = value[index + 2:index + 6]
-                if (
-                    len(low_digits) == 4
-                    and re.fullmatch(r"[0-9A-Fa-f]{4}", low_digits)
-                ):
-                    low = int(low_digits, 16)
-                    if 0xDC00 <= low <= 0xDFFF:
-                        combined = (
-                            0x10000
-                            + ((codepoint - 0xD800) << 10)
-                            + (low - 0xDC00)
-                        )
-                        result.append(chr(combined))
-                        index += 6
-                        continue
-
-            result.append(chr(codepoint))
-            continue
-
-        if escaped in ("\n", "\r"):
-            if escaped == "\r" and index + 1 < length and value[index + 1] == "\n":
-                index += 1
-            index += 1
-            continue
-
-        result.append(escaped)
+        escape = value[index]
         index += 1
 
-    return "".join(result)
-
-
-def extract_industry_name_map(text):
-    pattern = re.compile(
-        r"""
-        \bGyo\s*
-        \[\s*(?P<index>\d+)\s*\]\s*
-        =\s*
-        "(?P<value>(?:\\.|[^"\\])*)"
-        \s*;?
-        """,
-        flags=re.VERBOSE | re.DOTALL,
-    )
-
-    result = {}
-
-    for match in pattern.finditer(text):
-        industry_index = int(match.group("index"))
-        if not 0 <= industry_index < INDUSTRY_COUNT:
+        if escape in simple_escapes:
+            output.append(simple_escapes[escape])
             continue
 
-        name = decode_js_string(match.group("value")).strip()
-        if not name:
-            raise UpdateError("Gyo[{}] 的行业名为空".format(industry_index))
+        if escape == "u":
+            digits = value[index:index + 4]
 
-        existing = result.get(industry_index)
-        if existing is not None and existing != name:
-            raise UpdateError(
-                "同一来源中 Gyo[{}] 存在冲突：{} / {}".format(
-                    industry_index,
-                    existing,
-                    name,
+            if len(digits) != 4 or not re.fullmatch(
+                r"[0-9A-Fa-f]{4}", digits
+            ):
+                raise UpdateError(
+                    "JavaScript 字符串包含无效的 Unicode 转义"
                 )
-            )
 
-        result[industry_index] = name
+            output.append(chr(int(digits, 16)))
+            index += 4
+            continue
 
-    return result
+        if escape == "x":
+            digits = value[index:index + 2]
 
+            if len(digits) != 2 or not re.fullmatch(
+                r"[0-9A-Fa-f]{2}", digits
+            ):
+                raise UpdateError(
+                    "JavaScript 字符串包含无效的十六进制转义"
+                )
 
-def merged_industry_name_map(texts):
-    merged = {}
+            output.append(chr(int(digits, 16)))
+            index += 2
+            continue
 
-    for text in texts:
-        source_map = extract_industry_name_map(text)
-        for industry_index, name in source_map.items():
-            if industry_index not in merged:
-                merged[industry_index] = name
+        output.append(escape)
 
-    return merged
-
-
-def has_complete_industry_names(name_map):
-    expected_indexes = set(range(INDUSTRY_COUNT))
-    if set(name_map) != expected_indexes:
-        return False
-
-    names = [name_map[index].strip() for index in range(INDUSTRY_COUNT)]
-    return len(set(names)) == INDUSTRY_COUNT and all(names)
+    return "".join(output)
 
 
-def collect_industry_names(texts):
-    name_map = merged_industry_name_map(texts)
-
-    missing = [
-        index
-        for index in range(INDUSTRY_COUNT)
-        if index not in name_map
-    ]
-    if missing:
-        raise UpdateError(
-            "行业名不足 {} 个，缺少索引：{}".format(
-                INDUSTRY_COUNT,
-                ", ".join(str(index) for index in missing),
-            )
-        )
-
-    names = [name_map[index].strip() for index in range(INDUSTRY_COUNT)]
-
-    if len(names) != INDUSTRY_COUNT:
-        raise UpdateError("行业名数量不是 {}".format(INDUSTRY_COUNT))
-
-    if any(not name for name in names):
-        raise UpdateError("行业名中存在空值")
-
-    if len(set(names)) != INDUSTRY_COUNT:
-        raise UpdateError("行业名不是恰好 {} 个唯一值".format(INDUSTRY_COUNT))
-
-    return names
-
-
-def extract_scalar_assignment(text, variable_name):
+def extract_scalar_string(text, variable_name):
     pattern = re.compile(
         r"""
-        (?<![A-Za-z0-9_$])
-        """
-        + re.escape(variable_name)
-        + r"""
+        \b%s\b
         \s*=\s*
-        "(?P<value>(?:\\.|[^"\\])*)"
+        (?P<quote>["'])
+        (?P<value>(?:\\.|[^"'\\])*)
+        (?P=quote)
         \s*;
-        """,
-        flags=re.VERBOSE | re.DOTALL,
+        """
+        % re.escape(variable_name),
+        flags=re.DOTALL | re.VERBOSE,
     )
 
     matches = list(pattern.finditer(text))
+
     if not matches:
-        raise UpdateError("current JS 缺少 {} 标量赋值".format(variable_name))
+        raise UpdateError(
+            "current JS 缺少标量字符串 {}".format(variable_name)
+        )
 
-    return decode_js_string(matches[-1].group("value")).strip()
+    return decode_javascript_string(
+        matches[-1].group("value")
+    ).strip()
 
 
-def parse_finite_number(value, context):
+def parse_number(value, label):
     cleaned = value.strip()
-    cleaned = cleaned.replace("\u2212", "-")
-    cleaned = cleaned.replace("\uff0b", "+")
-    cleaned = cleaned.replace("\uff05", "%")
-
-    if cleaned.endswith("%"):
-        cleaned = cleaned[:-1].strip()
 
     if not cleaned:
-        raise UpdateError("{} 包含空数值".format(context))
+        raise UpdateError("{} 包含空数值".format(label))
 
     try:
         number = float(cleaned)
     except ValueError as exc:
         raise UpdateError(
-            "{} 包含无法解析的数值：{}".format(context, value)
+            "{} 包含无效数值: {}".format(label, cleaned)
         ) from exc
 
     if not math.isfinite(number):
-        raise UpdateError("{} 包含非有限数值：{}".format(context, value))
+        raise UpdateError("{} 包含非有限数值".format(label))
 
     return number
 
 
-def parse_number_list(value, context):
+def parse_number_list(value, label):
     parts = [
         item.strip()
         for item in re.split(r"[,_]", value)
-        if item.strip()
+        if item.strip() != ""
     ]
 
     if len(parts) != INDUSTRY_COUNT:
         raise UpdateError(
-            "{} 应包含 {} 个数值，实际为 {} 个".format(
-                context,
+            "{} 必须恰好包含 {} 个值，实际为 {}".format(
+                label,
                 INDUSTRY_COUNT,
                 len(parts),
             )
         )
 
     return [
-        parse_finite_number(item, "{}[{}]".format(context, index))
+        parse_number(item, "{}[{}]".format(label, index))
         for index, item in enumerate(parts)
     ]
 
 
 def normalize_date(value):
-    raw = value.strip()
-
-    japanese_match = re.fullmatch(
-        r"(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日",
-        raw,
-    )
-    if japanese_match:
-        year, month, day = map(int, japanese_match.groups())
-        try:
-            return datetime(year, month, day).date().isoformat()
-        except ValueError as exc:
-            raise UpdateError("日期无效：{}".format(value)) from exc
+    cleaned = value.strip()
 
     match = re.fullmatch(
-        r"(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})",
-        raw,
+        r"(\d{4})\s*(?:[-/.]|年)\s*(\d{1,2})\s*(?:[-/.]|月)\s*(\d{1,2})\s*日?",
+        cleaned,
     )
-    if not match:
-        raise UpdateError("无法解析日期：{}".format(value))
 
-    year, month, day = map(int, match.groups())
+    if not match:
+        raise UpdateError("无效日期: {}".format(value))
+
+    year, month, day = (int(part) for part in match.groups())
+
     try:
-        return datetime(year, month, day).date().isoformat()
+        parsed = dt.date(year, month, day)
     except ValueError as exc:
-        raise UpdateError("日期无效：{}".format(value)) from exc
+        raise UpdateError("无效日期: {}".format(value)) from exc
+
+    return parsed.isoformat()
 
 
 def normalize_time(value):
-    raw = value.strip()
+    cleaned = value.strip()
+
     match = re.fullmatch(
-        r"(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?",
-        raw,
+        r"(\d{1,2}):(\d{2})(?::(\d{2}))?",
+        cleaned,
     )
+
     if not match:
-        raise UpdateError("无法解析时间：{}".format(value))
+        raise UpdateError("无效时间: {}".format(value))
 
     hour = int(match.group(1))
     minute = int(match.group(2))
     second_text = match.group(3)
     second = int(second_text) if second_text is not None else 0
 
-    if not 0 <= hour <= 23:
-        raise UpdateError("小时无效：{}".format(value))
-    if not 0 <= minute <= 59:
-        raise UpdateError("分钟无效：{}".format(value))
-    if not 0 <= second <= 59:
-        raise UpdateError("秒数无效：{}".format(value))
+    if hour > 23 or minute > 59 or second > 59:
+        raise UpdateError("无效时间: {}".format(value))
 
-    if second_text is None:
-        return "{:02d}:{:02d}".format(hour, minute)
+    if second_text is not None:
+        return "{:02d}:{:02d}:{:02d}".format(
+            hour, minute, second
+        )
 
-    return "{:02d}:{:02d}:{:02d}".format(hour, minute, second)
+    return "{:02d}:{:02d}".format(hour, minute)
 
 
-def time_to_seconds(value):
-    parts = [int(part) for part in value.split(":")]
+def time_sort_key(value):
+    normalized = normalize_time(value)
+    parts = [int(part) for part in normalized.split(":")]
+
     if len(parts) == 2:
-        hour, minute = parts
-        second = 0
-    elif len(parts) == 3:
-        hour, minute, second = parts
-    else:
-        raise UpdateError("规范化时间格式异常：{}".format(value))
+        parts.append(0)
 
-    return hour * 3600 + minute * 60 + second
+    return tuple(parts)
 
 
 def parse_current_js(text):
-    mod_date = normalize_date(extract_scalar_assignment(text, "ModDate"))
-    mod_time = normalize_time(extract_scalar_assignment(text, "ModTime"))
+    mod_date = normalize_date(
+        extract_scalar_string(text, "ModDate")
+    )
+
+    mod_time = normalize_time(
+        extract_scalar_string(text, "ModTime")
+    )
 
     current_points = parse_number_list(
-        extract_scalar_assignment(text, "G1"),
+        extract_scalar_string(text, "G1"),
         "G1",
     )
+
     change_points = parse_number_list(
-        extract_scalar_assignment(text, "G2"),
+        extract_scalar_string(text, "G2"),
         "G2",
     )
 
-    previous_close = []
-    daily_percent = []
+    previous_closes = []
+    daily_percents = []
 
-    for index, (current, change) in enumerate(
+    for index, (current_point, change_point) in enumerate(
         zip(current_points, change_points)
     ):
-        previous = current - change
-        if not math.isfinite(previous) or previous == 0:
+        previous_close = current_point - change_point
+
+        if previous_close <= 0:
             raise UpdateError(
-                "行业 {} 的 previous close 无效：current={} change={}".format(
-                    index,
-                    current,
-                    change,
-                )
+                "行业 {} 的 previousClose 必须大于 0".format(index)
             )
 
-        percent = change / previous * 100.0
-        if not math.isfinite(percent):
-            raise UpdateError("行业 {} 的当日涨跌百分比无效".format(index))
+        daily_percent = (
+            change_point / previous_close * 100.0
+        )
 
-        previous_close.append(previous)
-        daily_percent.append(percent)
+        previous_closes.append(previous_close)
+        daily_percents.append(daily_percent)
 
     return {
         "date": mod_date,
         "time": mod_time,
         "points": current_points,
         "changes": change_points,
-        "previousClose": previous_close,
-        "percentages": daily_percent,
+        "previousCloses": previous_closes,
+        "dailyPercents": daily_percents,
     }
 
 
+PAST_ASSIGNMENT_RE = re.compile(
+    r"""
+    \bGY
+    \s*\[
+        [^\]]+
+    \]
+    \s*=\s*
+    (?P<quote>["'])
+    (?P<value>(?:\\.|[^"'\\])*)
+    (?P=quote)
+    \s*;
+    (?:\s*q\s*\+\+\s*;)?
+    """,
+    flags=re.DOTALL | re.VERBOSE,
+)
+
+
 def parse_past_js(text):
-    pattern = re.compile(
-        r"""
-        \bGY\s*
-        \[
-            [^\]]+
-        \]
-        \s*=\s*
-        "(?P<value>(?:\\.|[^"\\])*)"
-        \s*;
-        """,
-        flags=re.VERBOSE | re.DOTALL,
-    )
-
-    matches = list(pattern.finditer(text))
-    if not matches:
-        raise UpdateError("past JS 中未找到 GY[...] 历史赋值")
-
     records_by_date = {}
+    matches = list(PAST_ASSIGNMENT_RE.finditer(text))
 
-    for record_index, match in enumerate(matches):
-        decoded = decode_js_string(match.group("value")).strip()
-        parts = decoded.split(",", 2)
+    if not matches:
+        raise UpdateError(
+            "past JS 中未找到 GY[...] 历史点位记录"
+        )
 
-        if len(parts) != 3:
+    for sequence, match in enumerate(matches):
+        decoded = decode_javascript_string(
+            match.group("value")
+        )
+
+        parts = [
+            item.strip()
+            for item in decoded.split(",")
+        ]
+
+        expected_count = 2 + INDUSTRY_COUNT
+
+        if len(parts) != expected_count:
             raise UpdateError(
-                "past 记录 {} 不符合 日期,时间,33值 格式".format(record_index)
+                "past JS 的 GY 记录必须包含 {} 项，实际为 {}".format(
+                    expected_count,
+                    len(parts),
+                )
             )
 
         record_date = normalize_date(parts[0])
         record_time = normalize_time(parts[1])
-        values = parse_number_list(
-            parts[2],
-            "past[{}]".format(record_index),
-        )
 
-        candidate = {
+        points = [
+            parse_number(
+                item,
+                "past {} industry {}".format(
+                    record_date,
+                    index,
+                ),
+            )
+            for index, item in enumerate(parts[2:])
+        ]
+
+        record = {
             "date": record_date,
             "time": record_time,
-            "values": values,
+            "points": points,
+            "_sequence": sequence,
         }
 
-        existing = records_by_date.get(record_date)
-        if (
-            existing is None
-            or time_to_seconds(record_time)
-            > time_to_seconds(existing["time"])
-        ):
-            records_by_date[record_date] = candidate
+        old_record = records_by_date.get(record_date)
 
-    records = [
-        records_by_date[record_date]
-        for record_date in sorted(records_by_date)
-    ]
+        if old_record is None:
+            records_by_date[record_date] = record
+            continue
 
-    if not records:
-        raise UpdateError("past JS 未产生任何有效历史记录")
+        old_key = (
+            time_sort_key(old_record["time"]),
+            old_record["_sequence"],
+        )
+
+        new_key = (
+            time_sort_key(record_time),
+            sequence,
+        )
+
+        if new_key >= old_key:
+            records_by_date[record_date] = record
+
+    records = sorted(
+        records_by_date.values(),
+        key=lambda item: item["date"],
+    )
+
+    for record in records:
+        record.pop("_sequence", None)
 
     return records
 
 
-def compound_return(records, industry_index, days, end_index):
-    start_index = end_index - days + 1
-    if start_index < 0:
-        raise UpdateError(
-            "计算 {} 日收益时历史数据不足".format(days)
+GY_NAME_RE = re.compile(
+    r"""
+    \bGyo
+    \s*\[
+        \s*(?P<index>\d+)\s*
+    \]
+    \s*=\s*
+    (?P<quote>["'])
+    (?P<value>(?:\\.|[^"'\\])*)
+    (?P=quote)
+    \s*;
+    """,
+    flags=re.DOTALL | re.VERBOSE,
+)
+
+
+def parse_industry_names(text_sources):
+    names_by_index = {}
+
+    for _, text in text_sources:
+        for match in GY_NAME_RE.finditer(text):
+            index = int(match.group("index"))
+
+            if index < 0 or index >= INDUSTRY_COUNT:
+                continue
+
+            if index in names_by_index:
+                continue
+
+            name = decode_javascript_string(
+                match.group("value")
+            ).strip()
+
+            if not name:
+                raise UpdateError(
+                    "Gyo[{}] 行业名为空".format(index)
+                )
+
+            names_by_index[index] = name
+
+    expected_indexes = set(range(INDUSTRY_COUNT))
+    actual_indexes = set(names_by_index)
+
+    if actual_indexes != expected_indexes:
+        missing = sorted(
+            expected_indexes - actual_indexes
         )
 
-    growth = 1.0
-    for record_index in range(start_index, end_index + 1):
-        daily = records[record_index]["values"][industry_index]
-        growth *= 1.0 + daily / 100.0
+        raise UpdateError(
+            "行业名必须覆盖 Gyo[0] 至 Gyo[32]；缺失={}".format(
+                missing
+            )
+        )
 
-    result = (growth - 1.0) * 100.0
+    names = [
+        names_by_index[index]
+        for index in range(INDUSTRY_COUNT)
+    ]
+
+    if len(set(names)) != INDUSTRY_COUNT:
+        raise UpdateError(
+            "33 个行业名必须唯一"
+        )
+
+    return names
+
+
+def merge_point_records(
+    past_records,
+    current,
+):
+    records_by_date = {
+        record["date"]: {
+            "date": record["date"],
+            "time": record["time"],
+            "points": list(record["points"]),
+        }
+        for record in past_records
+    }
+
+    records_by_date[current["date"]] = {
+        "date": current["date"],
+        "time": current["time"],
+        "points": list(current["points"]),
+    }
+
+    records = sorted(
+        records_by_date.values(),
+        key=lambda item: item["date"],
+    )
+
+    if records[-1]["date"] != current["date"]:
+        raise UpdateError(
+            "current 日期不是最新交易日"
+        )
+
+    if len(records) < MIN_TRADING_DAYS + 1:
+        raise UpdateError(
+            "点位历史不足：至少需要 {} 个日期".format(
+                MIN_TRADING_DAYS + 1
+            )
+        )
+
+    return records
+
+
+def percent_change(latest, base, label):
+    if base <= 0:
+        raise UpdateError(
+            "{} 的基准点位必须大于 0".format(label)
+        )
+
+    result = (
+        latest / base - 1.0
+    ) * 100.0
+
     if not math.isfinite(result):
         raise UpdateError(
-            "行业 {} 的 {} 日收益不是有限数值".format(
-                industry_index,
-                days,
-            )
+            "{} 计算结果无效".format(label)
         )
 
     return result
 
 
-def calculate_snapshot(records, end_index):
-    if end_index < 19:
-        raise UpdateError("计算指标至少需要 20 个交易日")
+def compute_daily_values(
+    records,
+    record_index,
+    latest_override=None,
+):
+    current_points = records[record_index]["points"]
+    previous_points = records[record_index - 1]["points"]
 
-    daily_values = list(records[end_index]["values"])
-    return_5d = [
-        compound_return(records, industry_index, 5, end_index)
-        for industry_index in range(INDUSTRY_COUNT)
-    ]
-    return_20d = [
-        compound_return(records, industry_index, 20, end_index)
-        for industry_index in range(INDUSTRY_COUNT)
-    ]
-
-    daily_average = sum(daily_values) / INDUSTRY_COUNT
-    average_5d = sum(return_5d) / INDUSTRY_COUNT
-    average_20d = sum(return_20d) / INDUSTRY_COUNT
-
-    rs_5 = [value - average_5d for value in return_5d]
-    rs_20 = [value - average_20d for value in return_20d]
-
-    strength = [
-        0.15 * (daily_values[index] - daily_average)
-        + 0.35 * rs_5[index]
-        + 0.50 * rs_20[index]
+    values = [
+        percent_change(
+            current_points[index],
+            previous_points[index],
+            "dailyPercent",
+        )
         for index in range(INDUSTRY_COUNT)
     ]
 
-    ranked_indexes = sorted(
+    if (
+        latest_override is not None
+        and record_index == len(records) - 1
+    ):
+        values = list(latest_override)
+
+    return values
+
+
+def compute_snapshot(
+    records,
+    record_index,
+    daily_override=None,
+):
+    if record_index < 20:
+        raise UpdateError(
+            "计算 20 日收益所需的点位历史不足"
+        )
+
+    daily_values = compute_daily_values(
+        records,
+        record_index,
+        latest_override=daily_override,
+    )
+
+    return_5d = []
+    return_20d = []
+
+    for industry_index in range(INDUSTRY_COUNT):
+        latest_point = records[record_index]["points"][
+            industry_index
+        ]
+
+        return_5d.append(
+            percent_change(
+                latest_point,
+                records[record_index - 5]["points"][
+                    industry_index
+                ],
+                "return5d",
+            )
+        )
+
+        return_20d.append(
+            percent_change(
+                latest_point,
+                records[record_index - 20]["points"][
+                    industry_index
+                ],
+                "return20d",
+            )
+        )
+
+    average_daily = (
+        sum(daily_values) / INDUSTRY_COUNT
+    )
+
+    average_5d = (
+        sum(return_5d) / INDUSTRY_COUNT
+    )
+
+    average_20d = (
+        sum(return_20d) / INDUSTRY_COUNT
+    )
+
+    relative_daily = [
+        value - average_daily
+        for value in daily_values
+    ]
+
+    rs5 = [
+        value - average_5d
+        for value in return_5d
+    ]
+
+    rs20 = [
+        value - average_20d
+        for value in return_20d
+    ]
+
+    strengths = [
+        0.15 * relative_daily[index]
+        + 0.35 * rs5[index]
+        + 0.50 * rs20[index]
+        for index in range(INDUSTRY_COUNT)
+    ]
+
+    rank_order = sorted(
         range(INDUSTRY_COUNT),
-        key=lambda industry_index: (
-            -strength[industry_index],
-            industry_index,
+        key=lambda index: (
+            -strengths[index],
+            index,
         ),
     )
 
-    ranks = [0] * INDUSTRY_COUNT
-    for rank, industry_index in enumerate(ranked_indexes, start=1):
-        ranks[industry_index] = rank
+    ranks = {
+        industry_index: rank_position + 1
+        for rank_position, industry_index
+        in enumerate(rank_order)
+    }
 
     return {
         "daily": daily_values,
         "return5d": return_5d,
         "return20d": return_20d,
-        "rs5": rs_5,
-        "rs20": rs_20,
-        "strength": strength,
+        "rs5": rs5,
+        "rs20": rs20,
+        "strength": strengths,
         "ranks": ranks,
     }
 
 
-def calculate_streak(records, industry_index):
-    direction = 0
-    count = 0
-    epsilon = 1e-12
+def compute_streaks(
+    records,
+    latest_daily_override,
+    first_output_index,
+):
+    relative_history = []
 
-    for record in reversed(records):
-        average = sum(record["values"]) / INDUSTRY_COUNT
-        relative = record["values"][industry_index] - average
+    for record_index in range(
+        first_output_index,
+        len(records),
+    ):
+        override = (
+            latest_daily_override
+            if record_index == len(records) - 1
+            else None
+        )
 
-        if relative > epsilon:
-            current_direction = 1
-        elif relative < -epsilon:
-            current_direction = -1
-        else:
-            break
+        daily_values = compute_daily_values(
+            records,
+            record_index,
+            latest_override=override,
+        )
 
-        if direction == 0:
-            direction = current_direction
+        average_daily = (
+            sum(daily_values)
+            / INDUSTRY_COUNT
+        )
 
-        if current_direction != direction:
-            break
+        relative_history.append(
+            [
+                value - average_daily
+                for value in daily_values
+            ]
+        )
 
-        count += 1
+    streaks = []
 
-    return count * direction
+    for industry_index in range(INDUSTRY_COUNT):
+        latest_relative = (
+            relative_history[-1][industry_index]
+        )
+
+        if abs(latest_relative) <= 1e-12:
+            streaks.append(0)
+            continue
+
+        direction = (
+            1
+            if latest_relative > 0
+            else -1
+        )
+
+        count = 0
+
+        for daily_relative in reversed(
+            relative_history
+        ):
+            value = (
+                daily_relative[industry_index]
+            )
+
+            if value > 1e-12:
+                current_direction = 1
+            elif value < -1e-12:
+                current_direction = -1
+            else:
+                current_direction = 0
+
+            if current_direction != direction:
+                break
+
+            count += 1
+
+        streaks.append(
+            direction * count
+        )
+
+    return streaks
 
 
-def rotation_state(rs_5, rs_20):
-    if rs_5 >= 0 and rs_20 >= 0:
+def classify_rotation(rs5, rs20):
+    if rs5 >= 0 and rs20 >= 0:
         return "leading"
-    if rs_5 >= 0 and rs_20 < 0:
+
+    if rs5 >= 0 and rs20 < 0:
         return "improving"
-    if rs_5 < 0 and rs_20 >= 0:
+
+    if rs5 < 0 and rs20 >= 0:
         return "weakening"
+
     return "lagging"
 
 
-def rounded_number(value, digits=6):
+def clean_float(value):
     if not math.isfinite(value):
-        raise UpdateError("尝试输出非有限数值")
+        raise UpdateError(
+            "输出中出现非有限数值"
+        )
 
-    rounded = round(float(value), digits)
+    rounded = round(
+        float(value),
+        6,
+    )
+
     if rounded == 0:
         return 0.0
+
     return rounded
-
-
-def calculate_metrics(records, industry_names, current_data):
-    if len(records) < MIN_HISTORY_DAYS:
-        raise UpdateError(
-            "指标计算至少需要 {} 个交易日".format(MIN_HISTORY_DAYS)
-        )
-
-    latest_index = len(records) - 1
-    current_snapshot = calculate_snapshot(records, latest_index)
-    previous_snapshot = calculate_snapshot(records, latest_index - 1)
-
-    sectors = []
-
-    for industry_index in range(INDUSTRY_COUNT):
-        rank = current_snapshot["ranks"][industry_index]
-        previous_rank = previous_snapshot["ranks"][industry_index]
-
-        sector = {
-            "id": industry_index,
-            "code": "Gyo{}".format(industry_index),
-            "name": industry_names[industry_index],
-            "current": rounded_number(
-                current_data["points"][industry_index]
-            ),
-            "change": rounded_number(
-                current_data["changes"][industry_index]
-            ),
-            "previousClose": rounded_number(
-                current_data["previousClose"][industry_index]
-            ),
-            "dailyPercent": rounded_number(
-                current_snapshot["daily"][industry_index]
-            ),
-            "return5d": rounded_number(
-                current_snapshot["return5d"][industry_index]
-            ),
-            "return20d": rounded_number(
-                current_snapshot["return20d"][industry_index]
-            ),
-            "rs5": rounded_number(
-                current_snapshot["rs5"][industry_index]
-            ),
-            "rs20": rounded_number(
-                current_snapshot["rs20"][industry_index]
-            ),
-            "rank": rank,
-            "previousRank": previous_rank,
-            "rankChange": previous_rank - rank,
-            "streak": calculate_streak(records, industry_index),
-            "strength": rounded_number(
-                current_snapshot["strength"][industry_index]
-            ),
-            "rotationState": rotation_state(
-                current_snapshot["rs5"][industry_index],
-                current_snapshot["rs20"][industry_index],
-            ),
-            "fundFlow": None,
-            "fundFlowRank": None,
-        }
-        sectors.append(sector)
-
-    return sectors
-
-
-def merge_history(past_records, current_data):
-    records_by_date = {}
-
-    for record in past_records:
-        existing = records_by_date.get(record["date"])
-        if (
-            existing is None
-            or time_to_seconds(record["time"])
-            > time_to_seconds(existing["time"])
-        ):
-            records_by_date[record["date"]] = {
-                "date": record["date"],
-                "time": record["time"],
-                "values": list(record["values"]),
-            }
-
-    later_dates = [
-        record_date
-        for record_date in records_by_date
-        if record_date > current_data["date"]
-    ]
-    if later_dates:
-        raise UpdateError(
-            "past JS 含有晚于 current 日期 {} 的记录：{}".format(
-                current_data["date"],
-                ", ".join(sorted(later_dates)),
-            )
-        )
-
-    records_by_date[current_data["date"]] = {
-        "date": current_data["date"],
-        "time": current_data["time"],
-        "values": list(current_data["percentages"]),
-    }
-
-    records = [
-        records_by_date[record_date]
-        for record_date in sorted(records_by_date)
-    ]
-
-    if len(records) < MIN_HISTORY_DAYS:
-        raise UpdateError(
-            "合并后只有 {} 个交易日，至少需要 {} 个".format(
-                len(records),
-                MIN_HISTORY_DAYS,
-            )
-        )
-
-    records = records[-MAX_HISTORY_DAYS:]
-
-    if records[-1]["date"] != current_data["date"]:
-        raise UpdateError("current 日期不是合并后历史中的最新日期")
-
-    return records
 
 
 def build_payload(
     industry_names,
     records,
-    sectors,
-    current_data,
-    past_url,
-    current_url,
+    current,
+    sources,
 ):
-    history = []
+    latest_index = len(records) - 1
+    previous_index = latest_index - 1
 
-    for record in records:
-        if len(record["values"]) != INDUSTRY_COUNT:
-            raise UpdateError("历史记录行业数不一致")
+    latest_snapshot = compute_snapshot(
+        records,
+        latest_index,
+        daily_override=current["dailyPercents"],
+    )
+
+    previous_snapshot = compute_snapshot(
+        records,
+        previous_index,
+        daily_override=None,
+    )
+
+    first_output_index = max(
+        1,
+        len(records) - MAX_TRADING_DAYS,
+    )
+
+    output_indexes = list(
+        range(
+            first_output_index,
+            len(records),
+        )
+    )
+
+    if len(output_indexes) < MIN_TRADING_DAYS:
+        raise UpdateError(
+            "完整交易日不足 {} 天".format(
+                MIN_TRADING_DAYS
+            )
+        )
+
+    streaks = compute_streaks(
+        records,
+        current["dailyPercents"],
+        first_output_index,
+    )
+
+    sectors = []
+
+    for index, name in enumerate(
+        industry_names
+    ):
+        rank = latest_snapshot["ranks"][index]
+        previous_rank = (
+            previous_snapshot["ranks"][index]
+        )
+
+        sectors.append(
+            {
+                "index": index,
+                "name": name,
+                "currentPoint": clean_float(
+                    current["points"][index]
+                ),
+                "changePoint": clean_float(
+                    current["changes"][index]
+                ),
+                "previousClose": clean_float(
+                    current["previousCloses"][index]
+                ),
+                "dailyPercent": clean_float(
+                    latest_snapshot["daily"][index]
+                ),
+                "return5d": clean_float(
+                    latest_snapshot["return5d"][index]
+                ),
+                "return20d": clean_float(
+                    latest_snapshot["return20d"][index]
+                ),
+                "rs5": clean_float(
+                    latest_snapshot["rs5"][index]
+                ),
+                "rs20": clean_float(
+                    latest_snapshot["rs20"][index]
+                ),
+                "rank": int(rank),
+                "previousRank": int(previous_rank),
+                "rankChange": int(
+                    previous_rank - rank
+                ),
+                "streak": int(
+                    streaks[index]
+                ),
+                "strength": clean_float(
+                    latest_snapshot["strength"][index]
+                ),
+                "rotationState": classify_rotation(
+                    latest_snapshot["rs5"][index],
+                    latest_snapshot["rs20"][index],
+                ),
+                "fundFlow": None,
+                "fundFlowRank": None,
+            }
+        )
+
+    history = []
+    point_history = []
+
+    for record_index in output_indexes:
+        record = records[record_index]
+
+        override = (
+            current["dailyPercents"]
+            if record_index == latest_index
+            else None
+        )
+
+        daily_values = compute_daily_values(
+            records,
+            record_index,
+            latest_override=override,
+        )
 
         history.append(
             {
                 "date": record["date"],
                 "time": record["time"],
                 "values": [
-                    rounded_number(value)
-                    for value in record["values"]
+                    clean_float(value)
+                    for value in daily_values
                 ],
             }
         )
 
-    return {
+        point_history.append(
+            {
+                "date": record["date"],
+                "time": record["time"],
+                "values": [
+                    clean_float(value)
+                    for value in record["points"]
+                ],
+            }
+        )
+
+    payload = {
         "schemaVersion": 2,
-        "generatedAt": datetime.now(timezone.utc)
-        .isoformat(timespec="seconds")
-        .replace("+00:00", "Z"),
-        "latestDate": current_data["date"],
-        "latestTime": current_data["time"],
-        "tradingDayCount": len(history),
+        "generatedAt": (
+            dt.datetime.now(
+                dt.timezone.utc
+            )
+            .isoformat(
+                timespec="seconds"
+            )
+            .replace(
+                "+00:00",
+                "Z"
+            )
+        ),
+        "latestDate": current["date"],
+        "latestTime": current["time"],
+        "tradingDayCount": len(output_indexes),
         "industryCount": INDUSTRY_COUNT,
-        "industryNames": list(industry_names),
+        "industryNames": list(
+            industry_names
+        ),
         "sectors": sectors,
         "history": history,
+        "pointHistory": point_history,
         "sources": {
-            "entry": ENTRY_URL,
-            "past": past_url,
-            "current": current_url,
+            "entry": sources["entry"],
+            "past": sources["past"],
+            "current": sources["current"],
         },
         "fundFlow": None,
     }
 
+    validate_payload(payload)
 
-def is_finite_number(value):
-    return (
-        isinstance(value, (int, float))
-        and not isinstance(value, bool)
-        and math.isfinite(value)
-    )
+    return payload
 
 
 def validate_payload(payload):
-    required_top_level = {
-        "schemaVersion",
-        "generatedAt",
-        "latestDate",
-        "latestTime",
-        "tradingDayCount",
-        "industryCount",
-        "industryNames",
-        "sectors",
-        "history",
-        "sources",
-        "fundFlow",
-    }
-
-    missing = required_top_level - set(payload)
-    if missing:
+    if payload["schemaVersion"] != 2:
         raise UpdateError(
-            "payload 缺少字段：{}".format(", ".join(sorted(missing)))
+            "schemaVersion 必须为 2"
         )
 
-    if payload["schemaVersion"] != 2:
-        raise UpdateError("schemaVersion 必须为 2")
-
     if payload["industryCount"] != INDUSTRY_COUNT:
-        raise UpdateError("industryCount 不一致")
+        raise UpdateError(
+            "industryCount 必须为 33"
+        )
 
-    names = payload["industryNames"]
-    if not isinstance(names, list) or len(names) != INDUSTRY_COUNT:
-        raise UpdateError("industryNames 数量不正确")
+    if len(payload["industryNames"]) != INDUSTRY_COUNT:
+        raise UpdateError(
+            "industryNames 数量错误"
+        )
 
-    if len(set(names)) != INDUSTRY_COUNT or any(
-        not isinstance(name, str) or not name.strip()
-        for name in names
+    if len(set(payload["industryNames"])) != INDUSTRY_COUNT:
+        raise UpdateError(
+            "industryNames 必须唯一"
+        )
+
+    if not (
+        MIN_TRADING_DAYS
+        <= payload["tradingDayCount"]
+        <= MAX_TRADING_DAYS
     ):
-        raise UpdateError("industryNames 必须是 33 个非空唯一字符串")
+        raise UpdateError(
+            "tradingDayCount 不在允许范围内"
+        )
 
-    history = payload["history"]
-    if not isinstance(history, list):
-        raise UpdateError("history 必须是数组")
+    if len(payload["sectors"]) != INDUSTRY_COUNT:
+        raise UpdateError(
+            "sectors 数量错误"
+        )
 
-    if not MIN_HISTORY_DAYS <= len(history) <= MAX_HISTORY_DAYS:
-        raise UpdateError("history 交易日数量超出允许范围")
+    if payload["fundFlow"] is not None:
+        raise UpdateError(
+            "fundFlow 必须为 null"
+        )
 
-    if payload["tradingDayCount"] != len(history):
-        raise UpdateError("tradingDayCount 与 history 长度不一致")
+    if len(payload["history"]) != payload["tradingDayCount"]:
+        raise UpdateError(
+            "history 长度错误"
+        )
 
-    history_dates = []
-
-    for record in history:
-        if set(record) != {"date", "time", "values"}:
-            raise UpdateError("history 记录字段不正确")
-
-        normalize_date(record["date"])
-        normalize_time(record["time"])
-
-        values = record["values"]
-
-        if not isinstance(values, list) or len(values) != INDUSTRY_COUNT:
-            raise UpdateError("history.values 必须包含 33 个数值")
-
-        if not all(is_finite_number(value) for value in values):
-            raise UpdateError("history.values 含有无效数值")
-
-        history_dates.append(record["date"])
-
-    if history_dates != sorted(history_dates):
-        raise UpdateError("history 未按日期升序排列")
-
-    if len(set(history_dates)) != len(history_dates):
-        raise UpdateError("history 中存在重复日期")
-
-    if history_dates[-1] != payload["latestDate"]:
-        raise UpdateError("latestDate 与 history 最新日期不一致")
-
-    sectors = payload["sectors"]
-
-    if not isinstance(sectors, list) or len(sectors) != INDUSTRY_COUNT:
-        raise UpdateError("sectors 数量不正确")
-
-    required_sector_fields = {
-        "id",
-        "code",
-        "name",
-        "current",
-        "change",
-        "previousClose",
-        "dailyPercent",
-        "return5d",
-        "return20d",
-        "rs5",
-        "rs20",
-        "rank",
-        "previousRank",
-        "rankChange",
-        "streak",
-        "strength",
-        "rotationState",
-        "fundFlow",
-        "fundFlowRank",
-    }
+    if len(payload["pointHistory"]) != payload["tradingDayCount"]:
+        raise UpdateError(
+            "pointHistory 长度错误"
+        )
 
     ranks = []
     previous_ranks = []
 
-    for industry_index, sector in enumerate(sectors):
-        missing_sector_fields = required_sector_fields - set(sector)
-
-        if missing_sector_fields:
-            raise UpdateError(
-                "sector {} 缺少字段：{}".format(
-                    industry_index,
-                    ", ".join(sorted(missing_sector_fields)),
-                )
-            )
+    for sector in payload["sectors"]:
+        ranks.append(sector["rank"])
+        previous_ranks.append(
+            sector["previousRank"]
+        )
 
         if sector["fundFlow"] is not None:
-            raise UpdateError("sector fundFlow 必须为 null")
+            raise UpdateError(
+                "sector fundFlow 必须为 null"
+            )
 
         if sector["fundFlowRank"] is not None:
-            raise UpdateError("sector fundFlowRank 必须为 null")
+            raise UpdateError(
+                "sector fundFlowRank 必须为 null"
+            )
 
-        ranks.append(sector["rank"])
-        previous_ranks.append(sector["previousRank"])
+        if (
+            sector["rankChange"]
+            != sector["previousRank"]
+            - sector["rank"]
+        ):
+            raise UpdateError(
+                "rankChange 计算错误"
+            )
 
-    expected_ranks = list(range(1, INDUSTRY_COUNT + 1))
-
-    if sorted(ranks) != expected_ranks:
-        raise UpdateError("rank 不是完整的 1 到 33 排名")
-
-    if sorted(previous_ranks) != expected_ranks:
-        raise UpdateError("previousRank 不是完整的 1 到 33 排名")
-
-    if payload["fundFlow"] is not None:
-        raise UpdateError("顶层 fundFlow 必须为 null")
-
-    try:
-        json.dumps(
-            payload,
-            ensure_ascii=False,
-            allow_nan=False,
+    expected = list(
+        range(
+            1,
+            INDUSTRY_COUNT + 1,
         )
-    except (TypeError, ValueError) as exc:
+    )
+
+    if sorted(ranks) != expected:
         raise UpdateError(
-            "payload 无法安全序列化为 JSON：{}".format(exc)
-        ) from exc
+            "rank 必须完整覆盖 1~33"
+        )
+
+    if sorted(previous_ranks) != expected:
+        raise UpdateError(
+            "previousRank 必须完整覆盖 1~33"
+        )
+
+    json.dumps(
+        payload,
+        ensure_ascii=False,
+        allow_nan=False,
+    )
 
 
-SCRIPT_BLOCK_PATTERN = re.compile(
-    r"(?P<open><script\b[^>]*>)"
-    r"(?P<body>.*?)"
-    r"(?P<close></script\s*>)",
+SCRIPT_BLOCK_RE = re.compile(
+    r"<script\b[^>]*>.*?</script\s*>",
     flags=re.IGNORECASE | re.DOTALL,
 )
 
-ID_ATTRIBUTE_PATTERN = re.compile(
-    r"""
-    \bid\s*=\s*
-    (?:
-        (?P<quote>["'])
-        (?P<quoted>.*?)
-        (?P=quote)
-        |
-        (?P<unquoted>[^\s>]+)
-    )
-    """,
-    flags=re.IGNORECASE | re.VERBOSE | re.DOTALL,
+SCRIPT_ID_RE = re.compile(
+    r"""\bid\s*=\s*(?P<quote>["'])(?P<value>[^"']+)(?P=quote)""",
+    flags=re.IGNORECASE,
 )
 
 
-def get_script_id(opening_tag):
-    match = ID_ATTRIBUTE_PATTERN.search(opening_tag)
+def replace_embedded_json(
+    index_html,
+    payload_json,
+):
+    daily_blocks = []
+    embedded_blocks = []
 
-    if not match:
-        return None, None
+    for match in SCRIPT_BLOCK_RE.finditer(
+        index_html
+    ):
+        block = match.group(0)
+        opening_end = block.find(">")
 
-    value = (
-        match.group("quoted")
-        if match.group("quoted") is not None
-        else match.group("unquoted")
-    )
+        if opening_end < 0:
+            continue
 
-    return value, match
-
-
-def replace_script_id(opening_tag, id_match, new_id):
-    if id_match.group("quoted") is not None:
-        start = id_match.start("quoted")
-        end = id_match.end("quoted")
-    else:
-        start = id_match.start("unquoted")
-        end = id_match.end("unquoted")
-
-    return opening_tag[:start] + new_id + opening_tag[end:]
-
-
-def replace_embedded_data(index_html, json_text):
-    blocks = []
-
-    for block_match in SCRIPT_BLOCK_PATTERN.finditer(index_html):
-        script_id, id_match = get_script_id(block_match.group("open"))
-        if script_id is not None:
-            blocks.append((block_match, script_id, id_match))
-
-    primary = [
-        item
-        for item in blocks
-        if item[1] == "daily-update-data"
-    ]
-
-    if len(primary) > 1:
-        raise UpdateError(
-            'index.html 中存在多个 id="daily-update-data" script'
-        )
-
-    use_fallback = False
-
-    if primary:
-        selected = primary[0]
-    else:
-        fallback = [
-            item
-            for item in blocks
-            if item[1] == "embedded-data"
+        opening_tag = block[
+            :opening_end + 1
         ]
 
-        if len(fallback) > 1:
-            raise UpdateError(
-                'index.html 中存在多个 id="embedded-data" script'
+        id_match = SCRIPT_ID_RE.search(
+            opening_tag
+        )
+
+        if not id_match:
+            continue
+
+        script_id = id_match.group(
+            "value"
+        )
+
+        if script_id == "daily-update-data":
+            daily_blocks.append(
+                (
+                    match,
+                    opening_tag,
+                    id_match,
+                )
+            )
+        elif script_id == "embedded-data":
+            embedded_blocks.append(
+                (
+                    match,
+                    opening_tag,
+                    id_match,
+                )
             )
 
-        if not fallback:
+    if len(daily_blocks) > 1:
+        raise UpdateError(
+            "存在多个 daily-update-data"
+        )
+
+    if daily_blocks:
+        match, opening_tag, id_match = (
+            daily_blocks[0]
+        )
+        change_id = False
+    else:
+        if len(embedded_blocks) != 1:
             raise UpdateError(
-                'index.html 中既没有 id="daily-update-data"，'
-                '也没有 id="embedded-data"'
+                "找不到唯一的数据 script"
             )
 
-        selected = fallback[0]
-        use_fallback = True
+        match, opening_tag, id_match = (
+            embedded_blocks[0]
+        )
 
-    block_match, _script_id, id_match = selected
-    opening_tag = block_match.group("open")
+        change_id = True
 
-    if use_fallback:
-        opening_tag = replace_script_id(
-            opening_tag,
-            id_match,
-            "daily-update-data",
+    if change_id:
+        start = id_match.start("value")
+        end = id_match.end("value")
+
+        opening_tag = (
+            opening_tag[:start]
+            + "daily-update-data"
+            + opening_tag[end:]
         )
 
     replacement = (
         opening_tag
         + "\n"
-        + json_text
-        + "\n"
-        + block_match.group("close")
+        + payload_json
+        + "\n</script>"
     )
 
     return (
-        index_html[:block_match.start()]
+        index_html[:match.start()]
         + replacement
-        + index_html[block_match.end():]
+        + index_html[match.end():]
     )
 
 
-def atomic_write_text(path, content):
+def atomic_write_text(
+    path,
+    text,
+):
     path = Path(path)
 
-    if not path.exists():
-        raise UpdateError("目标文件不存在：{}".format(path))
+    old_mode = stat.S_IMODE(
+        path.stat().st_mode
+    )
 
-    original_mode = stat.S_IMODE(path.stat().st_mode)
-    file_descriptor = None
-    temporary_name = None
+    temp_path = None
 
     try:
-        file_descriptor, temporary_name = tempfile.mkstemp(
-            prefix=".{}.".format(path.name),
-            suffix=".tmp",
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            newline="",
             dir=str(path.parent),
+            prefix=".index.",
+            suffix=".tmp",
+            delete=False,
+        ) as temp_file:
+            temp_path = Path(
+                temp_file.name
+            )
+
+            temp_file.write(text)
+            temp_file.flush()
+            os.fsync(
+                temp_file.fileno()
+            )
+
+        os.chmod(
+            temp_path,
+            old_mode,
         )
 
-        with os.fdopen(
-            file_descriptor,
-            "w",
-            encoding="utf-8",
-            newline=""
-        ) as handle:
-            file_descriptor = None
-            handle.write(content)
-            handle.flush()
-            os.fsync(handle.fileno())
+        os.replace(
+            temp_path,
+            path,
+        )
 
-        os.chmod(temporary_name, original_mode)
-        os.replace(temporary_name, path)
-        temporary_name = None
-
-    except Exception as exc:
-        raise UpdateError(
-            "原子写入 {} 失败：{}".format(path, exc)
-        ) from exc
+        temp_path = None
 
     finally:
-        if file_descriptor is not None:
-            try:
-                os.close(file_descriptor)
-            except OSError:
-                pass
-
-        if temporary_name is not None:
-            try:
-                os.unlink(temporary_name)
-            except OSError:
-                pass
+        if (
+            temp_path is not None
+            and temp_path.exists()
+        ):
+            temp_path.unlink()
 
 
 def main():
-    try:
-        opener = build_opener(
-            HTTPCookieProcessor(CookieJar())
-        )
+    opener = build_http_opener()
 
-        entry_final_url, entry_text = fetch_text(
-            opener,
-            ENTRY_URL
-        )
-        print("入口页成功: {}".format(entry_final_url))
+    entry_html = fetch_text(
+        opener,
+        ENTRY_URL,
+    )
 
-        direct_script_urls = discover_script_urls(
-            entry_text,
-            entry_final_url,
-        )
+    print("入口页成功")
 
-        past_candidates = []
+    script_urls = extract_same_site_script_urls(
+        entry_html
+    )
 
-        for script_url in direct_script_urls:
-            if is_target_script(
-                script_url,
-                "country_jp_gyo_past.js",
-            ):
-                past_candidates.append(script_url)
+    fetched_scripts = {}
 
-        for referenced_url in find_past_references(
-            entry_text,
-            entry_final_url,
-        ):
-            if referenced_url not in past_candidates:
-                past_candidates.append(referenced_url)
-
-        support_texts = []
-        initial_references = list(direct_script_urls)
-
-        for script_url in find_javascript_references(
-            entry_text,
-            entry_final_url,
-        ):
-            if script_url not in initial_references:
-                initial_references.append(script_url)
-
-        queue = []
-        queued = set()
-
-        for script_url in initial_references:
-            if not is_same_site(script_url):
-                continue
-
-            if is_target_script(
-                script_url,
-                "country_jp_gyo_past.js",
-            ):
-                if script_url not in past_candidates:
-                    past_candidates.append(script_url)
-                continue
-
-            if is_target_script(
-                script_url,
-                "country_jp_gyo.js",
-            ):
-                continue
-
-            if script_url not in queued:
-                queued.add(script_url)
-                queue.append(script_url)
-
-        fetched_support_count = 0
-
-        while queue:
-            current_name_map = merged_industry_name_map(
-                [entry_text] + support_texts
-            )
-
-            if (
-                past_candidates
-                and has_complete_industry_names(current_name_map)
-            ):
-                break
-
-            if fetched_support_count >= MAX_SUPPORT_SCRIPTS:
-                break
-
-            requested_url = queue.pop(0)
-
-            script_final_url, script_text = fetch_text(
+    for script_url in script_urls:
+        try:
+            fetched_scripts[
+                script_url
+            ] = fetch_text(
                 opener,
-                requested_url,
+                script_url,
             )
+        except UpdateError:
+            continue
 
-            fetched_support_count += 1
-            support_texts.append(script_text)
+    past_url = discover_past_url(
+        entry_html,
+        fetched_scripts,
+    )
 
-            for referenced_url in find_past_references(
-                script_text,
-                script_final_url,
-            ):
-                if (
-                    is_same_site(referenced_url)
-                    and referenced_url not in past_candidates
-                ):
-                    past_candidates.append(referenced_url)
-
-            for nested_url in find_javascript_references(
-                script_text,
-                script_final_url,
-            ):
-                if not is_same_site(nested_url):
-                    continue
-
-                if is_target_script(
-                    nested_url,
-                    "country_jp_gyo_past.js",
-                ):
-                    if nested_url not in past_candidates:
-                        past_candidates.append(nested_url)
-                    continue
-
-                if is_target_script(
-                    nested_url,
-                    "country_jp_gyo.js",
-                ):
-                    continue
-
-                if nested_url not in queued:
-                    queued.add(nested_url)
-                    queue.append(nested_url)
-
-        if not past_candidates:
-            raise UpdateError(
-                "未能从入口 HTML 或同站 JS 中发现 "
-                "country_jp_gyo_past.js"
-            )
-
-        past_url = past_candidates[0]
-        print("发现past URL: {}".format(past_url))
-
-        current_url = derive_current_url(past_url)
-        print("派生current URL: {}".format(current_url))
-
-        _current_final_url, current_text = fetch_text(
-            opener,
-            current_url,
+    print(
+        "发现past URL: {}".format(
+            past_url
         )
+    )
 
-        current_data = parse_current_js(current_text)
+    current_url = derive_current_url(
+        past_url
+    )
 
-        print(
-            "current解析成功: {} {}，{}个行业".format(
-                current_data["date"],
-                current_data["time"],
-                len(current_data["percentages"]),
-            )
+    print(
+        "派生current URL: {}".format(
+            current_url
         )
+    )
 
-        _past_final_url, past_text = fetch_text(
+    current_text = fetch_text(
+        opener,
+        current_url,
+    )
+
+    current = parse_current_js(
+        current_text
+    )
+
+    print("current解析成功")
+
+    past_text = (
+        fetched_scripts.get(
+            past_url
+        )
+        or fetch_text(
             opener,
             past_url,
         )
+    )
 
-        past_records = parse_past_js(past_text)
+    past_records = parse_past_js(
+        past_text
+    )
 
-        print(
-            "past解析成功: {}个交易日".format(
-                len(past_records)
-            )
+    print(
+        "past解析成功: {}个交易日".format(
+            len(past_records)
         )
+    )
 
-        industry_names = collect_industry_names(
-            [entry_text]
-            + support_texts
-            + [current_text, past_text]
+    name_sources = [
+        ("entry", entry_html)
+    ]
+
+    name_sources.extend(
+        fetched_scripts.items()
+    )
+
+    name_sources.append(
+        (
+            "current",
+            current_text,
         )
+    )
 
-        print(
-            "行业名解析成功: {}个唯一行业".format(
-                len(industry_names)
-            )
+    name_sources.append(
+        (
+            "past",
+            past_text,
         )
+    )
 
-        records = merge_history(
-            past_records,
-            current_data,
+    industry_names = parse_industry_names(
+        name_sources
+    )
+
+    print(
+        "行业名解析成功: 33个"
+    )
+
+    records = merge_point_records(
+        past_records,
+        current,
+    )
+
+    payload = build_payload(
+        industry_names,
+        records,
+        current,
+        {
+            "entry": ENTRY_URL,
+            "past": past_url,
+            "current": current_url,
+        },
+    )
+
+    print("指标计算成功")
+
+    payload_json = json.dumps(
+        payload,
+        ensure_ascii=False,
+        indent=2,
+        allow_nan=False,
+    ).replace(
+        "</",
+        "<\\/",
+    )
+
+    try:
+        old_html = INDEX_PATH.read_text(
+            encoding="utf-8"
         )
-
-        sectors = calculate_metrics(
-            records,
-            industry_names,
-            current_data,
-        )
-
-        print(
-            "指标计算成功: {}个行业".format(
-                len(sectors)
-            )
-        )
-
-        payload = build_payload(
-            industry_names=industry_names,
-            records=records,
-            sectors=sectors,
-            current_data=current_data,
-            past_url=past_url,
-            current_url=current_url,
-        )
-
-        validate_payload(payload)
-
-        try:
-            index_html = INDEX_PATH.read_text(
-                encoding="utf-8"
-            )
-        except Exception as exc:
-            raise UpdateError(
-                "读取 index.html 失败：{}".format(exc)
-            ) from exc
-
-        payload_json = json.dumps(
-            payload,
-            ensure_ascii=False,
-            indent=2,
-            allow_nan=False,
-        ).replace("</", "<\\/")
-
-        updated_html = replace_embedded_data(
-            index_html,
-            payload_json,
-        )
-
-        if updated_html == index_html:
-            raise UpdateError(
-                "index.html 内容未发生变化，拒绝写入"
-            )
-
-        atomic_write_text(
-            INDEX_PATH,
-            updated_html
-        )
-
-        print(
-            "index.html写入成功: {}".format(
-                INDEX_PATH
-            )
-        )
-
-        return 0
-
-    except UpdateError as exc:
-        print(
-            "ERROR: {}".format(exc),
-            file=sys.stderr
-        )
-        return 1
-
     except Exception as exc:
-        print(
-            "ERROR: 未预期失败 {}: {}".format(
-                type(exc).__name__,
-                exc,
-            ),
-            file=sys.stderr,
+        raise UpdateError(
+            "读取 index.html 失败: {}".format(
+                exc
+            )
+        ) from exc
+
+    new_html = replace_embedded_json(
+        old_html,
+        payload_json,
+    )
+
+    if new_html == old_html:
+        raise UpdateError(
+            "index.html 未产生变化"
         )
-        return 1
+
+    atomic_write_text(
+        INDEX_PATH,
+        new_html,
+    )
+
+    print(
+        "index.html写入成功"
+    )
+
+    return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except UpdateError as exc:
+        print(
+            "更新失败: {}".format(exc),
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    except Exception as exc:
+        print(
+            "更新失败: {}".format(exc),
+            file=sys.stderr,
+        )
+        sys.exit(1)
