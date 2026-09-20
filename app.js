@@ -51,23 +51,160 @@ function help(){const d=day(),missing=d.records.filter(r=>!valid(r.change)).leng
 function renderContent(){if(state.market!=='japan'&&state.view!=='mapping'){ $('content').innerHTML=`<section class="panel empty"><h2>${state.market==='china'?'中国 A股':'美国'}行情尚未接入</h2><p>该市场没有导入真实个股日线，不借用日本数据。</p><button class="button" data-view="mapping">查看分类对照</button></section>`;return;} $('content').innerHTML=state.view==='overview'?overview():state.view==='sector'?sectorView():state.view==='stock'?stockView():state.view==='stocks'?rowsPanel(day().records,'全部普通股'):state.view==='mapping'?`<section class="panel mapping"><h2>中日美行业分类参考</h2><p>保留原项目分类资料；不是行情，也不代表一一对应。</p><div>${REFERENCE_HTML}</div></section>`:help();}
 
 let usDate='',usBase='',usSelected='';
-let cnStockCode='',cnQuery='';
+let cnStockCode='',cnQuery='',cnRankMetric='volume';
+const cnRankLabels={volume:'成交量',amount:'成交额',change:'涨幅'};
+function cnRankRows(rows,key='volume'){
+ return [...rows].filter(r=>valid(r[key])&&(key==='change'||r[key]>0)).sort((a,b)=>b[key]-a[key]||a.code.localeCompare(b.code));
+}
+function cnListRow(r,i,key='volume'){
+ const value=key==='volume'?valid(r.volume)?fmt(r.volume/1e4)+' 万股':'—':key==='amount'?valid(r.amount)?fmt(r.amount/1e8)+' 亿元':'—':pct(r.change);
+ return `<button class="stock-row cn-stock-row" data-cn-stock="${esc(r.code)}"><span class="pos">${i}</span><span class="stock-name">${esc(r.name)}<small>${esc(r.code)} · ${esc(r.sectorName)}</small></span><span class="number ${tone(r.change)}">${pct(r.change)}<small>¥${fmt(r.close)}</small></span><span class="number">${value}<small>${cnRankLabels[key]}</small></span><span class="arrow">›</span></button>`;
+}
+function cnListHead(key){return `<div class="stock-row cn-stock-row head"><span>序</span><span>名称 / 代码</span><span class="number">涨跌 / 价格</span><span class="number">${cnRankLabels[key]}${key==='volume'?'（万股）':key==='amount'?'（亿元）':'（%）'}</span><span></span></div>`;}
+
 function cnStockPanel(sectorCode=''){
  const bundle=DATA.cnStocks, d=bundle?.days?.find(x=>x.date===usDate);
  if(!d)return '<section class="panel"><h2>个股与排行</h2><p>此日期尚无个股归档。请选择已有个股数据的日期；不会用其他日期补位。</p></section>';
  const all=d.rows||[], rows=sectorCode?all.filter(r=>r.sector===sectorCode):all;
  const s=d.sectors.find(x=>x.code===sectorCode), expected=s?.expected||d.sectors.reduce((a,s)=>a+s.expected,0);
- const notice=`<div class="notice">个股日期 ${esc(d.date)} · 有效交易样本 ${rows.length}/${expected} · 成分观察 ${esc(d.membershipAsOf)}。范围为申万指数当前成分；缺数和停牌不参与。${bundle.status?.state==='failed'?'最近更新失败，以下保留旧归档。':''}成交额／涨幅榜不是原代表分或活跃分，原评分仍缺字段。</div>`;
- const rowHTML=(r,rank)=>`<button class="sector-card" data-cn-stock="${esc(r.code)}"><div class="card-top"><h3>${rank?rank+'. ':''}${esc(r.name)}</h3><strong class="${tone(r.change)}">${pct(r.change)}</strong></div><p>${esc(r.code)} · ${esc(r.sectorName)}</p><div class="native">股价 ¥${fmt(r.close)} · 成交额 ${valid(r.amount)?fmt(r.amount/1e8)+' 亿元':'—'}</div></button>`;
+ const notice=`<div class="notice">个股日期 ${esc(d.date)} · 有效交易样本 ${rows.length}/${expected} · 成分观察 ${esc(d.membershipAsOf)}。范围为申万指数当前成分；缺数和停牌不参与。${bundle.status?.state==='failed'?'最近更新失败，以下保留旧归档。':''}成交量／成交额／涨幅榜不是原代表分或活跃分，原评分仍缺字段。</div>`;
  const stock=all.find(r=>r.code===cnStockCode);
  if(stock){const history=bundle.days.filter(x=>x.date<=usDate).map(x=>({date:x.date,row:x.rows.find(r=>r.code===stock.code)})).filter(x=>x.row);return notice+`<section class="panel"><button class="button" data-cn-back>← 返回个股排行</button><h2>${esc(stock.name)} · ${esc(stock.code)}</h2><p>${esc(stock.sectorName)} · 报价时间 ${esc(stock.sourceTime)}（北京时间）</p><div class="summary">${metric('股价',fmt(stock.close),'人民币元')}${metric('当日涨跌',pct(stock.change),'来源昨收计算',tone(stock.change))}${metric('成交额',valid(stock.amount)?fmt(stock.amount/1e8):'—','亿元；源字段非估算')}</div><h3>每日量价与成交额上榜历史</h3><p>仅从真实归档开始；未核验复权数据，不计算跨日价格收益。</p><div class="grid">${history.reverse().map(x=>`<div class="compare-item"><label>${esc(x.date)}</label><strong class="${tone(x.row.change)}">${pct(x.row.change)}</strong><p>价格 ¥${fmt(x.row.close)} · 成交量 ${valid(x.row.volume)?fmt(x.row.volume/10000)+' 万股':'—'}</p><p>成交额 ${valid(x.row.amount)?fmt(x.row.amount/1e8)+' 亿元':'—'} · 行业内成交额 ${valid(x.row.amountRank)&&x.row.amountRank<=10?'第 '+x.row.amountRank+' 名（前10）':'未进入前10或缺数'}</p></div>`).join('')}</div></section>`;}
- const amount=[...rows].filter(r=>valid(r.amount)&&r.amount>0).sort((a,b)=>b.amount-a.amount||a.code.localeCompare(b.code)).slice(0,10);
- const gain=[...rows].filter(r=>valid(r.change)).sort((a,b)=>b.change-a.change||a.code.localeCompare(b.code)).slice(0,10);
- const filtered=rows.filter(r=>(r.name+' '+r.code+' '+r.sectorName).toLowerCase().includes(cnQuery.toLowerCase()));
- return notice+`<section class="panel"><h2>${sectorCode?'行业内':'已采集样本'}成交额 TOP10</h2><p>按当日真实成交额降序；覆盖不全时仅为已采集样本排行。</p><div class="grid">${amount.map((r,i)=>rowHTML(r,i+1)).join('')||'暂无有效数据'}</div></section><section class="panel"><h2>当日涨幅 TOP10</h2><p>按当日涨跌幅降序，包含负值；不是选股评分。</p><div class="grid">${gain.map((r,i)=>rowHTML(r,i+1)).join('')||'暂无有效数据'}</div></section><section class="panel"><h2>个股检索</h2><form id="cnSearchForm"><label>代码、名称或行业 <input id="cnSearch" value="${esc(cnQuery)}" placeholder="例如：000938 或 紫光股份"></label><button class="button">搜索</button></form><p>匹配 ${filtered.length} 只，显示前 100 只；可搜索定位。</p><div class="grid">${filtered.slice(0,100).map(r=>rowHTML(r)).join('')}</div></section>`;
+ const ranked=cnRankRows(rows,cnRankMetric).slice(0,10);
+ const filtered=[...rows].sort((a,b)=>(valid(b[cnRankMetric])?b[cnRankMetric]:-Infinity)-(valid(a[cnRankMetric])?a[cnRankMetric]:-Infinity)||a.code.localeCompare(b.code)).filter(r=>(r.name+' '+r.code+' '+r.sectorName).toLowerCase().includes(cnQuery.toLowerCase()));
+ return notice+`<section class="panel"><div class="panel-head"><h3>${sectorCode?'行业':'已采集样本'}${cnRankLabels[cnRankMetric]}前10</h3><div class="segments" aria-label="中国个股排行类型">${Object.entries(cnRankLabels).map(([key,label])=>`<button data-cn-rank="${key}" aria-pressed="${key===cnRankMetric}" class="${key===cnRankMetric?'active':''}">${label} TOP10</button>`).join('')}</div></div><p class="chart-note">按当日${cnRankMetric==='change'?'涨跌幅':'真实'+cnRankLabels[cnRankMetric]}降序；并列时按股票代码。${cnRankMetric==='volume'?'成交量为成交股数，显示单位万股；不等于成交金额。':''}覆盖不足时仅为已采集样本排名，不是代表／活跃评分。</p><div class="stock-list">${cnListHead(cnRankMetric)}${ranked.map((r,i)=>cnListRow(r,i+1,cnRankMetric)).join('')||'<div class="empty">暂无有效数据。</div>'}</div></section><section class="panel"><div class="panel-head"><h3>${sectorCode?'行业成分股':'全部个股'}检索</h3><span class="tag">${filtered.length} 只匹配</span></div><form id="cnSearchForm" class="toolbar"><label class="grow">代码、名称或行业<input type="search" id="cnSearch" value="${esc(cnQuery)}" placeholder="例如：000938 或 紫光股份"></label><button class="button">搜索</button></form><p class="chart-note">按${cnRankLabels[cnRankMetric]}排序，显示前100只，可搜索定位。</p><div class="stock-list">${cnListHead(cnRankMetric)}${filtered.slice(0,100).map((r,i)=>cnListRow(r,i+1,cnRankMetric)).join('')||'<div class="empty">没有匹配的股票。</div>'}</div></section>`;
 }
-document.addEventListener('click',e=>{const b=e.target.closest('button');if(!DATA||state.market!=='china'||!b)return;if(b.dataset.cnStock){cnStockCode=b.dataset.cnStock;renderUS();}if(b.hasAttribute('data-cn-back')){cnStockCode='';renderUS();}if(b.dataset.usSector||b.hasAttribute('data-us-back')||b.dataset.view){cnStockCode='';cnQuery='';renderUS();}});
+document.addEventListener('click',e=>{const b=e.target.closest('button');if(!DATA||state.market!=='china'||!b)return;if(b.dataset.cnRank&&Object.hasOwn(cnRankLabels,b.dataset.cnRank)){cnRankMetric=b.dataset.cnRank;renderUS();}if(b.dataset.cnStock){cnStockCode=b.dataset.cnStock;renderUS();}if(b.hasAttribute('data-cn-back')){cnStockCode='';renderUS();}if(b.dataset.usSector||b.hasAttribute('data-us-back')||b.dataset.view){cnStockCode='';cnQuery='';renderUS();}});
 document.addEventListener('submit',e=>{if(e.target.id==='cnSearchForm'){e.preventDefault();cnQuery=$('cnSearch').value.trim();renderUS();}});
+
+function cnDayKey(value) {
+  if (value instanceof Date) {
+    return Number.isFinite(value.getTime()) ? value.toISOString().slice(0, 10) : null;
+  }
+  const m = String(value ?? "").match(/^(\d{4})[-/](\d{2})[-/](\d{2})(?:$|[T\s])/);
+  if (!m) return null;
+  const y = +m[1], mo = +m[2], d = +m[3];
+  const dt = new Date(Date.UTC(y, mo - 1, d));
+  if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== mo - 1 || dt.getUTCDate() !== d) return null;
+  return `${m[1]}-${m[2]}-${m[3]}`;
+}
+
+function cnCardMetrics(indexRow, indexDays, currentDate, baseDate, stockDay) {
+  const current = cnDayKey(currentDate);
+  const base = cnDayKey(baseDate);
+  const code = indexRow && indexRow.code != null ? String(indexRow.code) : null;
+  const days = new Map(), duplicates = new Set();
+
+  for (const day of Array.isArray(indexDays) ? indexDays : []) {
+    const date = cnDayKey(day && day.date);
+    if (!date || !current || date > current) continue;
+    if (days.has(date) || duplicates.has(date)) {
+      duplicates.add(date);
+    } else {
+      days.set(date, day);
+    }
+  }
+
+  function uniqueSectorRow(day) {
+    const found = (Array.isArray(day && day.rows) ? day.rows : [])
+      .filter(r => r && r.code != null && String(r.code) === code);
+    return found.length === 1 ? found[0] : null;
+  }
+
+  function archiveLevel(day) {
+    const rows = Array.isArray(day && day.rows) ? day.rows : [];
+    if (rows.length !== 31) return undefined;
+    const seen = new Set();
+    for (const r of rows) {
+      if (!r || r.code == null) return undefined;
+      const key = String(r.code);
+      if (seen.has(key)) return undefined;
+      seen.add(key);
+    }
+    if (seen.size !== 31) return undefined;
+    const r = uniqueSectorRow(day);
+    return { level: r ? r.level : null };
+  }
+
+  const prior = [];
+  for (const [date, day] of days) {
+    if (date >= current) continue;
+    const archived = archiveLevel(day);
+    prior.push({ date, level: archived && !duplicates.has(date) ? archived.level : null });
+  }
+  prior.sort((a, b) => b.date.localeCompare(a.date));
+
+  const todayArchive = current && !duplicates.has(current) && archiveLevel(days.get(current));
+  const todayLevel = todayArchive ? todayArchive.level : null;
+  function periodReturn(n) {
+    if (!valid(todayLevel) || todayLevel <= 0 || prior.length < n) return null;
+    const span = prior.slice(0, n);
+    if (span.some(x => !valid(x.level) || x.level <= 0)) return null;
+    return 100 * (todayLevel / span[n - 1].level - 1);
+  }
+
+  const indexChange = indexRow && valid(indexRow.change) ? indexRow.change : null;
+  const baseRow = base && current && base < current && days.has(base) && !duplicates.has(base)
+    ? uniqueSectorRow(days.get(base)) : null;
+  const indexDiff = indexChange !== null && baseRow && valid(baseRow.change)
+    ? indexChange - baseRow.change : null;
+
+  const stockArchived = !!(current && stockDay && cnDayKey(stockDay.date) === current);
+  let up = 0, down = 0, flat = 0, expected = null;
+  if (stockArchived) {
+    for (const r of Array.isArray(stockDay.rows) ? stockDay.rows : []) {
+      if (!r || r.sector == null || String(r.sector) !== code || !valid(r.change)) continue;
+      if (r.change > 0) up++;
+      else if (r.change < 0) down++;
+      else flat++;
+    }
+    const sectors = (Array.isArray(stockDay.sectors) ? stockDay.sectors : [])
+      .filter(s => s && s.code != null && String(s.code) === code);
+    if (sectors.length === 1 && valid(sectors[0].expected) &&
+        Number.isInteger(sectors[0].expected) && sectors[0].expected > 0) {
+      expected = sectors[0].expected;
+    }
+  }
+
+  return {
+    indexChange,
+    indexReturn5: periodReturn(5),
+    indexReturn20: periodReturn(20),
+    indexDiff,
+    stockArchived,
+    expected,
+    up,
+    down,
+    flat,
+    validCount: up + down + flat
+  };
+}
+
+function cnSectorCard(row, metrics) {
+  const r = row || {}, m = metrics || {};
+  const n = x => valid(x) ? x : null;
+  const cls = x => valid(x) ? tone(x) : "";
+  const pp = x => valid(x) ? `${x > 0 ? "+" : ""}${fmt(x)}个百分点` : "—";
+  const expected = valid(m.expected) && m.expected > 0 ? m.expected : null;
+  const width = x => expected ? Math.min(100, 100 * Math.max(0, x || 0) / expected) : 0;
+  const subtitle = m.stockArchived
+    ? `申万指数 · 个股覆盖 ${m.validCount || 0}/${expected === null ? "—" : fmt(expected, 0)}`
+    : "申万指数 · 个股未归档";
+  const breadth = m.stockArchived
+    ? `上涨 ${m.up || 0} · 平 ${m.flat || 0} · 下跌 ${m.down || 0} · 有效 ${m.validCount || 0}`
+    : "个股数据未归档";
+
+  return `<button type="button" class="sector-card cn-sector-card" data-us-sector="${esc(r.code ?? "")}">
+<div class="card-top"><h3>${esc(r.name ?? r.code ?? "")}</h3><strong class="${cls(n(m.indexChange))}">${pct(n(m.indexChange))}</strong></div>
+<div class="native">${subtitle}</div>
+<div class="breadth" aria-label="${breadth}"><span class="green" style="width:${width(m.up)}%"></span><span class="red" style="width:${width(m.down)}%"></span></div>
+<div class="card-meta"><span>${m.stockArchived?`↑ ${m.up}　↓ ${m.down}　平 ${m.flat}`:'↑ —　↓ —'}</span><span>有效 ${m.stockArchived?m.validCount:'—'}/${expected??'—'}</span></div>
+<div class="card-bottom"><span>指数5日 <b class="${cls(n(m.indexReturn5))}">${pct(n(m.indexReturn5))}</b></span><span>指数20日 <b class="${cls(n(m.indexReturn20))}">${pct(n(m.indexReturn20))}</b></span><span>对比差 ${valid(m.indexDiff)?(m.indexDiff>0?'+':'')+fmt(m.indexDiff)+'pp':'—'}</span></div>
+</button>`;
+}
+
+// Test: duplicate/future dates, incomplete 31-row archives, missing or nonpositive levels.
+// Test: mismatched stock date, unknown/zero expected count, missing base date, and zero changes.
 
 function renderUS(){
  const china=state.market==='china', marketName=china?'中国 A股':'美国', count=china?31:19, source=china?'https://www.swsresearch.com/institute_sw/allIndex/releasedIndex':'https://nikkei225jp.com/nasdaq/';
@@ -83,12 +220,12 @@ function renderUS(){
  const base=days.find(x=>x.date===usBase), selected=d.rows.find(x=>x.code===usSelected);
  $('status').innerHTML=`<div class="status ${bundle.status.state==='success'?'':'warn'}"><b>${bundle.status.state==='success'?'● 已读取来源网页':'● 取数异常，保留旧快照'}</b><span>来源日期 ${esc(d.date)} · ${marketName}市场</span><span>归档 ${days.length} 日 · ${count} 个指数</span></div>`;
  $('controls').innerHTML=`<div class="toolbar"><label>观测日期<select id="usDate">${[...days].reverse().map(x=>`<option ${x.date===usDate?'selected':''}>${x.date}</option>`).join('')}</select></label><label>对比日期<select id="usBase"><option value="">无更早快照</option>${[...earlier].reverse().map(x=>`<option ${x.date===usBase?'selected':''}>${x.date}</option>`).join('')}</select></label><a href="${source}" target="_blank" rel="noopener noreferrer">查看来源网页 ↗</a></div>`;
- const note=china?'<div class="notice">申万官方行业指数日报；7个分组仅方便阅读，不是新增分类层级。31行业始终常显。涨幅对比为两日各自当日涨跌幅之差，不是区间收益。个股与成交额／涨幅排行按实际覆盖展示；原代表／活跃评分仍缺字段。</div>':'<div class="notice">来源标注的行业指数涨跌，不是行业个股等权统计。两套分类分别排名。仅保存实际获取的日期，不补造历史；代表TOP10、活跃TOP10及真实成交额尚缺。网页未提供完整时间戳和最终收盘标志，按来源日期展示快照。</div>';
- if(state.view==='help'&&china){$('content').innerHTML=note+'<section class="panel"><h2>中国市场数据口径</h2><p>来源：申万宏源研究官方指数日报。日期取源数据bargaindate，指数点位为closeindex，日涨跌幅为markup。行情日期与抓取时间分别保存；缺数、重复行业或日期异常时拒绝新数据，保留旧归档。北京时间每日19:17、21:17自动尝试更新。历史只保存实际取回的完整31行业日报。</p><p>个股来源新浪行情，成交量单位股、成交额单位元。按申万指数当前成分采集；停牌或缺数不参与排行。原代表／活跃分所需的股本、复权历史及筛选条件尚未齐全；当前展示真实成交额和涨幅榜。个股历史与上榜记录从归档之日起逐日积累。</p></section>';return;}
+ const note=china?'<div class="notice">申万官方行业指数日报；7个分组仅方便阅读，不是新增分类层级。31行业始终常显。卡片主涨跌和5／20日为申万指数表现（点位比值），不是个股等权收益；上涨／下跌家数来自同日有效个股，灰色含平盘和缺数。对比差是两日各自日涨跌幅之差。个股与成交量／成交额／涨幅排行按实际覆盖展示；原代表／活跃评分仍缺字段。</div>':'<div class="notice">来源标注的行业指数涨跌，不是行业个股等权统计。两套分类分别排名。仅保存实际获取的日期，不补造历史；代表TOP10、活跃TOP10及真实成交额尚缺。网页未提供完整时间戳和最终收盘标志，按来源日期展示快照。</div>';
+ if(state.view==='help'&&china){$('content').innerHTML=note+'<section class="panel"><h2>中国市场数据口径</h2><p>来源：申万宏源研究官方指数日报。日期取源数据bargaindate，指数点位为closeindex，日涨跌幅为markup。行情日期与抓取时间分别保存；缺数、重复行业或日期异常时拒绝新数据，保留旧归档。北京时间每日19:17、21:17自动尝试更新。历史只保存实际取回的完整31行业日报。</p><p>个股来源新浪行情，成交量单位股、成交额单位元。按申万指数当前成分采集；停牌或缺数不参与排行。原代表／活跃分所需的股本、复权历史及筛选条件尚未齐全；当前展示真实成交量、成交额和涨幅榜。个股历史与上榜记录从归档之日起逐日积累。</p></section>';return;}
  if(state.view==='help'){$('content').innerHTML=note+'<section class="panel"><h2>美股数据口径</h2><p>来源：nikkei225jp.com 的行业指数栏目。北京时间每天19:17、21:17随现有任务更新。来源日期与抓取时间分开保存；只显示已获取的记录。对比值为两个日期各自当日涨跌幅之差（百分点），不是区间累计收益。原站股票卖买额属于估算，未纳入本看板。</p></section>';return;}
  if(state.view==='stocks'&&china){$('content').innerHTML=cnStockPanel();return;}
  if(state.view==='stocks'){$('content').innerHTML=note+'<section class="panel"><h2>本次先接入行业数据</h2><p>个股列表与评分尚未接入。</p><a href="https://nikkei225jp.com/nasdaq/stock.php" target="_blank" rel="noopener noreferrer">查看原站个股页面 ↗</a></section>';return;}
- const card=r=>{const old=base?.rows.find(x=>x.code===r.code);return `<button class="sector-card" data-us-sector="${esc(r.code)}"><div class="card-top"><h3>${esc(r.name)}</h3><strong class="${tone(r.change)}">${pct(r.change)}</strong></div><div class="native">指数点位 ${fmt(r.level)} · 点数变化 ${fmt(r.delta)}</div><div class="native">对比日涨幅 ${pct(old?.change)} · 差 ${valid(old?.change)&&valid(r.change)?fmt(r.change-old.change)+' 个百分点':'—'}</div></button>`;};
+ const card=r=>{if(china)return cnSectorCard(r,cnCardMetrics(r,days,usDate,usBase,DATA.cnStocks?.days?.find(x=>x.date===usDate)));const old=base?.rows.find(x=>x.code===r.code);return `<button class="sector-card" data-us-sector="${esc(r.code)}"><div class="card-top"><h3>${esc(r.name)}</h3><strong class="${tone(r.change)}">${pct(r.change)}</strong></div><div class="native">指数点位 ${fmt(r.level)} · 点数变化 ${fmt(r.delta)}</div><div class="native">对比日涨幅 ${pct(old?.change)} · 差 ${valid(old?.change)&&valid(r.change)?fmt(r.change-old.change)+' 个百分点':'—'}</div></button>`;};
  const groups=china?['上游资源','材料化工','制造与军工','消费','医药与公用','TMT','金融地产与综合'].map(g=>[g,g]):[['sp500','S&P 500 · 11 个行业指数'],['nasdaq','NASDAQ · 8 个分类指数']];
  let detail='';if(selected){const history=days.filter(x=>x.date<=usDate).map(x=>({date:x.date,row:x.rows.find(r=>r.code===usSelected)})).filter(x=>x.row);detail=`<section class="panel"><button class="button" data-us-back>← 全部行业</button><h2>${esc(selected.name)} · 指数记录</h2><div class="summary">${metric('来源当日涨跌',pct(selected.change),'百分比',tone(selected.change))}${metric('指数点位',fmt(selected.level),'不是股票价格')}${metric('已归档观察',history.length,'日；无记录不补值')}</div><div class="compare-grid">${history.slice(-30).reverse().map(x=>`<div class="compare-item"><label>${esc(x.date)}</label><strong class="${tone(x.row.change)}">${pct(x.row.change)}</strong><p>指数 ${fmt(x.row.level)}</p></div>`).join('')}</div></section>`;}
  if(china&&selected)detail='<section class="panel"><button class="button" data-us-back>← 全部行业</button><h2>'+esc(selected.name)+'</h2></section>'+cnStockPanel(selected.code)+(cnStockCode?'':detail);
