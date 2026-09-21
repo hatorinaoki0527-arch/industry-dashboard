@@ -23,9 +23,11 @@ jobs:
       - name: Check ciphertext and stage only public assets
         run: |
           node --check app.js
+          node --check vault-cache.js
+          node --test tests/vault-cache.test.cjs
           node -e "const v=require('./vault.json');if(v.version!==1||v.cipher!=='AES-256-GCM'||v.iterations!==600000||Object.keys(v).sort().join(',')!=='cipher,compression,data,iterations,iv,kdf,salt,version')process.exit(1)"
           mkdir site
-          cp index.html app.js style.css meta.js reference.js favicon.svg vault.json site/
+          cp index.html app.js vault-cache.js style.css meta.js reference.js favicon.svg vault.json site/
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
