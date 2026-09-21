@@ -514,6 +514,13 @@ document.addEventListener('input',e=>{if(e.target.id==='cnQuickInput')cnQuickRes
 document.addEventListener('submit',e=>{if(e.target.id!=='cnQuickForm')return;e.preventDefault();cnQuickResults();const hits=$('cnQuickResults')?.querySelectorAll('[data-cn-quick]');if(hits?.length===1)cnQuickOpen(hits[0].dataset.cnQuick);});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&e.target.closest('#cnQuickForm')){$('cnQuickResults').hidden=true;$('cnQuickInput').focus();}});
 document.addEventListener('click',e=>{const b=e.target.closest('[data-cn-quick]');if(b&&DATA&&state.market==='china')cnQuickOpen(b.dataset.cnQuick);else if(!e.target.closest('#cnQuickForm')&&$('cnQuickResults'))$('cnQuickResults').hidden=true;});
+function cnUpdateStatus(bundle,day,stockBundle){
+ const count=day.rows.filter(r=>valid(r.level)&&valid(r.change)).length;
+ const stock=stockBundle?.days?.find(x=>x.date===day.date),latestStock=stockBundle?.days?.at(-1)?.date;
+ const failed=bundle.status?.state==='failed',stockFailed=stockBundle?.status?.state==='failed';
+ const label=count===31?'行业数据齐全':count?'行业数据部分到达':'行业指数暂缺';
+ return `<div class="status ${count<31||failed||stockFailed?'warn':''}"><b>● ${label} · ${count}/31</b><span>观测日期 ${esc(day.date)} · 中国 A股</span><span>同日个股 ${stock?fmt(stock.rows.length,0)+'只':'暂缺'} · 个股最新归档 ${esc(latestStock||'暂无')}</span></div>${count<31?'<div class="notice">行业指数尚未全部到达，缺失项显示 —；已到达的同日个股与排行可正常查看，不使用昨日指数补位。</div>':''}${failed||stockFailed?`<div class="notice">最近采集：${failed?'行业接口失败；':''}${stockFailed?'个股接口失败；':''}已保留通过校验的历史数据。行业检查 ${esc(bundle.status?.checkedAt||bundle.status?.fetchedAt||'—')}；个股检查 ${esc(stockBundle?.status?.fetchedAt||'—')}。</div>`:''}`;
+}
 function renderUS(){
  marketColors();
  const china=state.market==='china', marketName=china?'中国 A股':'美国', count=china?31:19, source=china?'https://www.swsresearch.com/institute_sw/allIndex/releasedIndex':'https://nikkei225jp.com/nasdaq/';
@@ -527,10 +534,10 @@ function renderUS(){
  const d=days.find(d=>d.date===usDate), earlier=days.filter(x=>x.date<usDate);
  if(!earlier.some(x=>x.date===usBase))usBase=earlier.at(-1)?.date||'';
  const base=days.find(x=>x.date===usBase), selected=d.rows.find(x=>x.code===usSelected);
- $('status').innerHTML=`<div class="status ${bundle.status.state==='success'?'':'warn'}"><b>${bundle.status.state==='success'?'● 已读取来源网页':'● 取数异常，保留旧快照'}</b><span>来源日期 ${esc(d.date)} · ${marketName}市场</span><span>归档 ${days.length} 日 · ${count} 个指数</span></div>`;
+ $('status').innerHTML=china?cnUpdateStatus(bundle,d,DATA.cnStocks):`<div class="status ${bundle.status.state==='success'?'':'warn'}"><b>${bundle.status.state==='success'?'● 已读取来源网页':'● 取数异常，保留旧快照'}</b><span>来源日期 ${esc(d.date)} · ${marketName}市场</span><span>归档 ${days.length} 日 · ${count} 个指数</span></div>`;
  $('controls').innerHTML=`<div class="toolbar"><label>观测日期<select id="usDate">${[...days].reverse().map(x=>`<option ${x.date===usDate?'selected':''}>${x.date}</option>`).join('')}</select></label><label>对比日期<select id="usBase"><option value="">无更早快照</option>${[...earlier].reverse().map(x=>`<option ${x.date===usBase?'selected':''}>${x.date}</option>`).join('')}</select></label><a href="${source}" target="_blank" rel="noopener noreferrer">查看来源网页 ↗</a></div>${china?cnPeriodOverview(d,days,selected):''}`;
  const note=china?'<div class="notice">申万官方行业指数日报；7个分组仅方便阅读，不是新增分类层级。31行业始终常显。卡片主涨跌和5／20日为申万指数表现（点位比值），不是个股等权收益；上涨／下跌家数来自同日有效个股，灰色含平盘和缺数。对比差是两日各自日涨跌幅之差。个股与成交量／成交额／涨幅排行按实际覆盖展示；原代表／活跃评分仍缺字段。</div>':'<div class="notice">来源标注的行业指数涨跌，不是行业个股等权统计。两套分类分别排名。仅保存实际获取的日期，不补造历史；代表TOP10、活跃TOP10及真实成交额尚缺。网页未提供完整时间戳和最终收盘标志，按来源日期展示快照。</div>';
- if(state.view==='help'&&china){$('content').innerHTML=note+'<section class="panel"><h2>中国市场数据口径</h2><p>来源：申万宏源研究官方指数日报。日期取源数据bargaindate，指数点位为closeindex，日涨跌幅为markup。行情日期与抓取时间分别保存；缺数、重复行业或日期异常时拒绝新数据，保留旧归档。北京时间每日19:17、21:17自动尝试更新。历史只保存实际取回的完整31行业日报。</p><p>个股来源新浪行情，成交量单位股、成交额单位元。按申万指数当前成分采集；停牌或缺数不参与排行。原代表／活跃分所需的股本、复权历史及筛选条件尚未齐全；当前展示真实成交量、成交额和涨幅榜。个股历史与上榜记录从归档之日起逐日积累。</p></section>';return;}
+ if(state.view==='help'&&china){$('content').innerHTML=note+'<section class="panel"><h2>中国市场数据口径</h2><p>来源：申万宏源研究官方指数日报。日期取源数据bargaindate，指数点位为closeindex，日涨跌幅为markup。行情日期与抓取时间分别保存；行业与个股按各自来源日期独立更新。行业缺数显示 —，重复代码或日期异常仍拒绝；已有有效数值不被缺数覆盖。北京时间每日19:17、21:17自动尝试更新。历史保留实际获取的数据与覆盖状态；仅有个股的日期不填造行业指数。</p><p>个股来源新浪行情，成交量单位股、成交额单位元。按申万指数当前成分采集；停牌或缺数不参与排行。原代表／活跃分所需的股本、复权历史及筛选条件尚未齐全；当前展示真实成交量、成交额和涨幅榜。个股历史与上榜记录从归档之日起逐日积累。</p></section>';return;}
  if(state.view==='help'){$('content').innerHTML=note+'<section class="panel"><h2>美股数据口径</h2><p>来源：nikkei225jp.com 的行业指数栏目。北京时间每天19:17、21:17随现有任务更新。来源日期与抓取时间分开保存；只显示已获取的记录。对比值为两个日期各自当日涨跌幅之差（百分点），不是区间累计收益。原站股票卖买额属于估算，未纳入本看板。</p></section>';return;}
  if(state.view==='stocks'&&china){$('content').innerHTML=cnStockPanel();return;}
  if(state.view==='stocks'){$('content').innerHTML=note+'<section class="panel"><h2>本次先接入行业数据</h2><p>个股列表与评分尚未接入。</p><a href="https://nikkei225jp.com/nasdaq/stock.php" target="_blank" rel="noopener noreferrer">查看原站个股页面 ↗</a></section>';return;}

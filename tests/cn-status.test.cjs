@@ -1,0 +1,6 @@
+const {test}=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm'),fs=require('node:fs'),path=require('node:path');
+const source=fs.readFileSync(path.join(__dirname,'../app.js'),'utf8');
+const ctx={valid:x=>typeof x==='number'&&Number.isFinite(x),fmt:x=>String(x),esc:x=>String(x).replaceAll('<','&lt;')};
+vm.createContext(ctx);vm.runInContext(source.slice(source.indexOf('function cnUpdateStatus('),source.indexOf('function renderUS(){')),ctx);
+test('partial indices and same-date stocks have separate coverage',()=>{const day={date:'2026-09-21',rows:[{level:100,change:1},{level:null,change:null}]};const html=ctx.cnUpdateStatus({status:{state:'partial'}},day,{days:[{date:day.date,rows:[{},{}]}],status:{state:'partial'}});assert.match(html,/1\/31/);assert.match(html,/同日个股 2只/);assert.match(html,/缺失项显示 —/);assert.doesNotMatch(html,/取数异常/)});
+test('different stock date is never described as same-day',()=>{const html=ctx.cnUpdateStatus({status:{state:'failed',fetchedAt:'check'}},{date:'2026-09-21',rows:[]},{days:[{date:'2026-09-18',rows:[{}]}],status:{state:'success'}});assert.match(html,/同日个股 暂缺/);assert.match(html,/个股最新归档 2026-09-18/);assert.match(html,/行业接口失败/)});
