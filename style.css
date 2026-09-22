@@ -35,3 +35,12 @@ body[data-market="japan"] .card-bottom{display:grid;grid-template-columns:1fr 1f
 .load-status{padding:10px 24px;background:#edf5ef;border-bottom:1px solid #d7e6dc;color:#48665b;font-size:13px;line-height:1.6}.load-status:empty{display:none}.load-status.warn{background:#fff4dc;color:#7a4d0c}.gate-card #clearCache{margin:8px 0}
 
 .ma-toggles{display:flex;flex-wrap:wrap;gap:10px;margin:16px 0}.ma-toggles label{display:flex;align-items:center;gap:8px;background:#f6f8f7;border:1px solid #dfe6e2;border-radius:10px;padding:8px 12px;font-size:13px;cursor:pointer}.ma-toggles input{width:16px;height:16px;margin:0;accent-color:currentColor}.ma-toggles b{display:block;font-size:14px;font-variant-numeric:tabular-nums;margin-top:3px}
+
+/* Preserve readable daily candle widths across multi-year ranges. */
+.candle-panel .panel-head{gap:16px;align-items:center;flex-wrap:wrap}
+.candle-panel .subtitle{margin:4px 0 0;font-size:12px}
+.candle-scroll{overflow-x:auto;overscroll-behavior-x:contain;border:1px solid var(--line,#e0e7e1);border-radius:10px;background:#fff}
+.candle-scroll svg{display:block;max-width:none;height:330px}
+.candle-scroll svg text{font-size:11px;fill:#667d74}
+.candle-panel .segments{flex-wrap:wrap}
+.candle-panel details{margin-top:12px}
