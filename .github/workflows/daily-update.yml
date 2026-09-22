@@ -26,8 +26,12 @@ jobs:
           node --check vault-cache.js
           node --test tests/vault-cache.test.cjs
           node -e "const v=require('./vault.json');if(v.version!==1||v.cipher!=='AES-256-GCM'||v.iterations!==600000||Object.keys(v).sort().join(',')!=='cipher,compression,data,iterations,iv,kdf,salt,version')process.exit(1)"
+          if [ -d history ]; then
+            node -e "const fs=require('fs');for(const f of fs.readdirSync('history')){if(!/^japan-[0-9]{4}-[0-9]{2}\\.[a-f0-9]{16}\\.json$/.test(f))throw Error('Unexpected history asset');const v=JSON.parse(fs.readFileSync('history/'+f));if(v.version!==1||v.cipher!=='AES-256-GCM'||v.iterations!==600000||Object.keys(v).sort().join(',')!=='cipher,compression,data,iterations,iv,kdf,salt,version')throw Error('Invalid ciphertext')}"
+          fi
           mkdir site
           cp index.html app.js vault-cache.js style.css meta.js reference.js favicon.svg vault.json site/
+          if [ -d history ]; then cp -R history site/; fi
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
