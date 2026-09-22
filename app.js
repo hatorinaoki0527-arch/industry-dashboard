@@ -8,7 +8,7 @@ const numCode=c=>String(c).endsWith('0')?String(c).slice(0,-1):String(c), meta=n
 let kYears=1;const stockPrices=new Map();
 let historyKey=null,historySalt='',historyBusy=false,historyError='';
 let DATA=null, dates=[], byDate=new Map(), byStock=new Map(), epoch=0, busy=false;
-let state={view:'overview',market:'japan',date:'',base:'',sector:'',stock:'',chart:'close',sort:'amount',sectorSort:'change',search:'',page:1};
+let state={view:'reports',market:'china',report:'',date:'',base:'',sector:'',stock:'',chart:'close',sort:'amount',sectorSort:'change',search:'',page:1};
 const rowObj=r=>Object.fromEntries(DATA.columns.map((c,i)=>[c,r[i]]));
 const day=()=>byDate.get(state.date), sector=()=>day()?.sectors.find(s=>s.code===state.sector), title=s=>meta(s.name).cn;
 const rowFor=(code,date=state.date)=>byStock.get(code)?.get(date);
@@ -39,11 +39,15 @@ async function unlock(e){
  }catch(error){$('gateMessage').textContent=error.message||'暂时无法载入，请重试。';}finally{busy=false;$('unlock').disabled=false;}
 }
 function lock(){epoch++;historyKey=null;stockPrices.clear();historySalt='';historyBusy=false;historyError='';DATA=null;dates=[];byDate.clear();byStock.clear();$('content').replaceChildren();$('heading').replaceChildren();$('controls').replaceChildren();$('status').replaceChildren();$('workspace').hidden=true;$('gate').hidden=false;$('password').value='';$('password').focus();}
-function route(p){historyError='';Object.assign(state,p);const q=new URLSearchParams();for(const key of ['view','market','date','base','sector','stock','chart'])if(state[key])q.set(key,state[key]);const h=q.toString();if(location.hash.slice(1)===h)render();else location.hash=h;}
-function readRoute(){if(!DATA)return;const q=new URLSearchParams(location.hash.slice(1));for(const key of ['view','market','date','base','sector','stock','chart'])if(q.has(key))state[key]=q.get(key);if(!dates.includes(state.date))state.date=dates.at(-1);if(!dates.includes(state.base)||state.base>=state.date)state.base='';if(!['overview','stocks','sector','stock','help','mapping'].includes(state.view))state.view='overview';if(!['japan','china','usa'].includes(state.market))state.market='japan';if(!['close','change','amount'].includes(state.chart))state.chart='close';render();}
+function route(p){historyError='';Object.assign(state,p);const q=new URLSearchParams();for(const key of ['view','market','date','base','sector','stock','chart','report'])if(state[key])q.set(key,state[key]);const h=q.toString();if(location.hash.slice(1)===h)render();else location.hash=h;}
+function readRoute(){if(!DATA)return;const q=new URLSearchParams(location.hash.slice(1));for(const key of ['view','market','date','base','sector','stock','chart','report'])if(q.has(key))state[key]=q.get(key);if(!dates.includes(state.date))state.date=dates.at(-1);if(!dates.includes(state.base)||state.base>=state.date)state.base='';if(!['overview','stocks','sector','stock','help','mapping','reports'].includes(state.view))state.view='overview';if(!['japan','china','usa'].includes(state.market))state.market='japan';if(!['close','change','amount'].includes(state.chart))state.chart='close';render();}
 
 function historyNeeds(){
  if(!DATA?.historyChunks?.length||state.market!=='japan'||['help','mapping'].includes(state.view))return [];
+ if(state.view==='reports'){
+  const s=selectedReport();const part=s.kind==='stock'&&!stockPrices.has(s.code)?DATA.priceChunks?.find(p=>p.code===s.code):null;
+  return part?[{...part,kind:'prices'}]:[];
+ }
  let wanted=[state.date];
  if(state.view==='stock')wanted=dates.slice(Math.max(0,dates.indexOf(state.date)-119),dates.indexOf(state.date)+1);
  if(state.view==='sector'&&jpCalendar.key===state.sector+'|'+state.date){
@@ -72,7 +76,7 @@ function prepareHistory(){
    const plain=await crypto.subtle.decrypt({name:'AES-GCM',iv:bytes(v.iv)},key,bytes(v.data));
    const body=JSON.parse(await new Response(new Blob([plain]).stream().pipeThrough(new DecompressionStream('gzip'))).text());
    if(part.kind==='prices'){
-    if(body.schemaVersion!==1||body.market!=='japan'||body.code!==part.code||JSON.stringify(body.columns)!==JSON.stringify(['date','open','high','low','close','volume','amount'])||!Array.isArray(body.bars)||body.bars.length!==part.days||body.bars.some((r,i)=>!Array.isArray(r)||r.length!==7||!dates.includes(r[0])||(i>0&&body.bars[i-1][0]>=r[0])||r.slice(1).some(v=>v!==null&&!valid(v))))throw Error('个股日K历史校验失败');
+    if(body.schemaVersion!==1||body.market!=='japan'||body.code!==part.code||!['date,open,high,low,close,volume,amount','date,open,high,low,close,volume,amount,change'].includes(body.columns?.join(','))||!Array.isArray(body.bars)||body.bars.length!==part.days||body.bars.some((r,i)=>!Array.isArray(r)||r.length!==body.columns.length||!dates.includes(r[0])||(i>0&&body.bars[i-1][0]>=r[0])||r.slice(1).some(v=>v!==null&&!valid(v))))throw Error('个股日K历史校验失败');
     if(attempt!==epoch||DATA!==data)return;
     stockPrices.set(part.code,body.bars.map(r=>Object.fromEntries(body.columns.map((c,i)=>[c,r[i]]))));await loaded.persist();continue;
    }
@@ -611,10 +615,89 @@ function renderUS(){
 document.addEventListener('click',e=>{const b=e.target.closest('button');if(!DATA||!['usa','china'].includes(state.market)||!b)return;if(b.dataset.usSector){usSelected=b.dataset.usSector;renderUS();}if(b.hasAttribute('data-us-back')){usSelected='';renderUS();}});
 document.addEventListener('change',e=>{if(!DATA||!['usa','china'].includes(state.market))return;if(e.target.id==='usDate'){usDate=e.target.value;usBase='';cnStockCode='';renderUS();}if(e.target.id==='usBase'){usBase=e.target.value;renderUS();}});
 
-function render(){if(!DATA)return;if(prepareHistory())return;marketColors();if(['usa','china'].includes(state.market)&&state.view!=='mapping'){renderUS();return;}const s=sector(),r=rowFor(state.stock);const titles={overview:'行业全景，每天有据可查',stocks:'找到你关注的股票',sector:s?title(s):'行业详情',stock:r?r.name:'个股详情',mapping:'中日美分类对照',help:'数据与口径'};$('heading').innerHTML=`<div class="page-head"><div><div class="eyebrow">${state.market==='japan'?'JAPAN / DAILY RESEARCH':state.market.toUpperCase()}</div><h1>${esc(titles[state.view])}</h1><p class="subtitle">${state.market==='japan'?'真实日线 · 33行业 · 行业与个股分层查看':'独立市场 · 行情待接入'}</p></div>${state.market==='japan'&&!['help','mapping'].includes(state.view)?jpQuickForm():'<span class="tag">已在本机解密</span>'}</div>`;$('status').innerHTML=state.market==='japan'?status():'';$('controls').innerHTML=state.market==='japan'&&!['help','mapping'].includes(state.view)?toolbar()+(['overview','sector'].includes(state.view)?jpPeriodOverview(state.view==='sector'?s:null):''):'';document.querySelectorAll('nav [data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===state.view||b.dataset.view==='overview'&&state.view==='sector'||b.dataset.view==='stocks'&&state.view==='stock'));document.querySelectorAll('[data-market]').forEach(b=>b.classList.toggle('active',b.dataset.market===state.market));renderContent();}
+let reportMonth='',reportDate='',reportIdentity='';
+function reportCatalog(){
+ if(state.market==='china'){
+  const stocks=DATA.cnStocks?.days?.at(-1)?.rows||[],fav=['sz000938','sz000977','sz000063','sh601138','sh603019'];
+  return [...fav.map(code=>stocks.find(r=>r.code===code)).filter(Boolean).map(r=>({key:'stock:'+r.code,name:r.name+' · '+r.code})),...(DATA.cnIndustries?.days?.at(-1)?.rows||[]).map(r=>({key:'sector:'+r.code,name:r.name+' · 行业'}))];
+ }
+ if(state.market==='japan')return [{key:'stock:99840',name:'软银集团 · 9984'},...(DATA.days.at(-1)?.sectors||[]).map(s=>({key:'sector:'+s.code,name:title(s)+' · 行业'}))];
+ return (DATA.usIndustries?.days?.at(-1)?.rows||[]).map(r=>({key:'sector:'+r.code,name:r.name}));
+}
+function selectedReport(){
+ const catalog=reportCatalog();let key=state.report||catalog[0]?.key||'';
+ if(!catalog.some(x=>x.key===key)){
+  const code=key.startsWith('stock:')?key.slice(6):'';
+  const row=state.market==='china'?DATA.cnStocks?.days?.at(-1)?.rows.find(r=>r.code===code):state.market==='japan'?rowFor(code,dates.at(-1)):null;
+  if(row)catalog.unshift({key,name:row.name+' · '+(state.market==='japan'?numCode(code):code)});else key=catalog[0]?.key||'';
+ }
+ state.report=key;return {catalog,key,code:key.split(':')[1],kind:key.split(':')[0]};
+}
+function reportRows(){
+ const sel=selectedReport(),china=state.market==='china',japan=state.market==='japan';
+ let rows=[],name=sel.catalog.find(r=>r.key===sel.key)?.name||'暂无报告',sectorName='',source='',kind=sel.kind==='stock'?'stock':'index';
+ let unit=kind==='stock'?(china?'CNY':'JPY'):'点',currency=china?'CNY':japan?'JPY':'USD';
+ if(china&&sel.kind==='stock'){
+  rows=(DATA.cnStocks?.days||[]).map(d=>({date:d.date,...(d.rows.find(r=>r.code===sel.code)||{})})).filter(r=>r.code);
+  const latest=rows.at(-1);name=latest?.name||name;sectorName=latest?.sectorName||'';source='新浪行情 · 未复权价格；成交量为股、成交额为人民币元';
+ }else if(japan&&sel.kind==='stock'){
+  rows=stockPrices.get(sel.code)||[...(byStock.get(sel.code)?.entries()||[])].map(([date,r])=>({date,...r}));
+  const r=rowFor(sel.code,dates.at(-1));name=r?.name||name;const s=DATA.days.at(-1)?.sectors.find(x=>x.code===r?.sector);sectorName=s?title(s):'';
+  source='J-Quants · 未复权四价；日涨跌按拆并股因子校正，非含分红收益；成交额为日元';
+ }else if(japan){
+  kind='breadth';unit='JPY';rows=DATA.days.map(d=>({date:d.date,...(d.sectors.find(s=>s.code===sel.code)||{})})).filter(r=>r.code);
+  const r=rows.at(-1);name=r?title(r):name;sectorName='东证33行业 · 普通股等权';source='J-Quants 成分股等权涨跌 · 不是东证行业价格指数；成交额为已采集样本合计';
+ }else{
+  rows=((china?DATA.cnIndustries:DATA.usIndustries)?.days||[]).map(d=>({date:d.date,...(d.rows.find(r=>r.code===sel.code)||{})})).filter(r=>r.code).map(r=>({...r,close:r.level}));
+  if(china)rows=rows.map(r=>{const members=DATA.cnStocks?.days?.find(d=>d.date===r.date)?.rows.filter(x=>x.sector===sel.code)||[];return {...r,amount:members.length&&members.every(x=>valid(x.amount))?members.reduce((s,x)=>s+x.amount,0):null};});
+  name=rows.at(-1)?.name||name;sectorName=china?'申万一级行业指数':'来源网页行业指数';source=china?'申万宏源研究行业指数；金额为新浪已采集成分股合计，非官方行业总额':'nikkei225jp 行业快照 · 尚缺四价及成交额';
+ }
+ rows=[...rows].sort((a,b)=>a.date.localeCompare(b.date)).map(r=>({...r,previousClose:valid(r.close)&&valid(r.change)&&r.change>-100?r.close/(1+r.change/100):null}));
+ return {...sel,name,kind,sectorName,source,unit,currency,rows,asOf:rows.at(-1)?.date||dates.at(-1)};
+}
+function renderReports(){
+ const selection=selectedReport();
+ const identity=state.market+'|'+selection.key;
+ if(identity!==reportIdentity){reportIdentity=identity;reportMonth='';reportDate='';}
+ marketColors();
+ $('heading').innerHTML='<div class="page-head"><div><div class="eyebrow">DAILY PRICE & VOLUME</div><h1>量价报告</h1><p class="subtitle">每天的价格、成交与变化，在一页里看清楚。</p></div></div>';
+ $('status').innerHTML='';$('controls').innerHTML='';
+ document.querySelectorAll('nav [data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view==='reports'));
+ document.querySelectorAll('[data-market]').forEach(b=>b.classList.toggle('active',b.dataset.market===state.market));
+ if(prepareHistory())return;
+ const m=reportRows(),months=[...new Set(m.rows.map(r=>r.date.slice(0,7)))];
+ if(!months.includes(reportMonth))reportMonth=months.at(-1)||m.asOf.slice(0,7);
+ const inMonth=m.rows.filter(r=>r.date.startsWith(reportMonth));
+ if(!inMonth.some(r=>r.date===reportDate))reportDate=inMonth.at(-1)?.date||'';
+ $('controls').innerHTML=`<div class="report-toolbar"><label>选择报告<select id="reportSubject">${m.catalog.map(c=>`<option value="${esc(c.key)}" ${c.key===m.key?'selected':''}>${esc(c.name)}</option>`).join('')}</select></label>${state.market!=='usa'?'<form id="reportSearchForm"><label>查找其他股票<input id="reportSearch" type="search" placeholder="名称或代码" autocomplete="off"></label><button class="button" type="submit">查找</button></form>':''}</div><div id="reportSearchResults" class="report-search-results" aria-live="polite"></div>`;
+ const market=state.market==='china'?'中国 A股':state.market==='japan'?'日本':'美国';
+ $('content').innerHTML=DailyReport.render({...m,code:state.market==='japan'&&m.kind==='stock'?numCode(m.code):m.code,market,month:reportMonth,selectedDate:reportDate})+
+ `<div class="report-links"><button class="button" data-report-detail>查看${m.kind==='stock'?'个股与所属行业':'行业'}详情 →</button><button class="button" data-view="overview">返回行业看板</button></div>`+
+ (m.kind==='breadth'?`<details class="report-chart-details"><summary>展开行业涨跌与成交额曲线</summary>${trendPanel(m.rows,'change','等权日涨跌 · 均值',reportDate||m.asOf,pct)}${trendPanel(m.rows,'amount','已采集成交额 · 均额',reportDate||m.asOf,money)}</details>`:`<details class="report-chart-details" open><summary>日K与均线 · 近1至5年</summary>${candlePanel(m.rows,reportDate||m.asOf,m.kind==='stock'?'个股日K · 未复权':'行业指数日K')}</details><details class="report-chart-details"><summary>展开成交额均线</summary>${trendPanel(m.rows,'amount','真实成交额 · 均额线',reportDate||m.asOf,money)}</details>`);
+}
+document.addEventListener('change',e=>{
+ if(!DATA||state.view!=='reports')return;
+ if(e.target.id==='reportSubject'){reportMonth='';reportDate='';route({report:e.target.value});}
+ if(e.target.id==='reportMonth'){reportMonth=e.target.value;reportDate='';renderReports();}
+});
+document.addEventListener('click',e=>{
+ if(!DATA||state.view!=='reports')return;const b=e.target.closest('button');if(!b)return;
+ if(b.dataset.reportDate){reportDate=b.dataset.reportDate;renderReports();}
+ if(b.dataset.reportStock){reportMonth='';reportDate='';route({report:'stock:'+b.dataset.reportStock});}
+ if(b.hasAttribute('data-report-detail')){const m=selectedReport();if(state.market==='japan')route(m.kind==='stock'?{view:'stock',stock:m.code,date:reportDate||dates.at(-1)}:{view:'sector',sector:m.code,date:reportDate||dates.at(-1)});else{usDate=reportDate||usDate;usSelected=m.kind==='sector'?m.code:'';cnStockCode=m.kind==='stock'?m.code:'';route({view:m.kind==='stock'?'stocks':'sector'});}window.scrollTo(0,0);}
+});
+document.addEventListener('submit',e=>{
+ if(e.target.id!=='reportSearchForm'||!DATA)return;e.preventDefault();
+ const q=$('reportSearch').value.trim().toLowerCase();
+ const rows=state.market==='china'?DATA.cnStocks?.days?.at(-1)?.rows||[]:DATA.days.at(-1)?.records||[];
+ const hits=q?rows.filter(r=>(r.code+' '+r.name).toLowerCase().includes(q)).slice(0,8):[];
+ $('reportSearchResults').innerHTML=hits.map(r=>`<button class="button" data-report-stock="${esc(r.code)}">${esc(r.name)} · ${esc(state.market==='japan'?numCode(r.code):r.code)}</button>`).join('')||'<span class="subtitle">请输入股票名称或代码；只检索已归档股票。</span>';
+});
+
+function render(){if(!DATA)return;if(state.view==='reports'){renderReports();return;}if(prepareHistory())return;marketColors();if(['usa','china'].includes(state.market)&&state.view!=='mapping'){renderUS();return;}const s=sector(),r=rowFor(state.stock);const titles={overview:'行业全景，每天有据可查',stocks:'找到你关注的股票',sector:s?title(s):'行业详情',stock:r?r.name:'个股详情',mapping:'中日美分类对照',help:'数据与口径'};$('heading').innerHTML=`<div class="page-head"><div><div class="eyebrow">${state.market==='japan'?'JAPAN / DAILY RESEARCH':state.market.toUpperCase()}</div><h1>${esc(titles[state.view])}</h1><p class="subtitle">${state.market==='japan'?'真实日线 · 33行业 · 行业与个股分层查看':'独立市场 · 行情待接入'}</p></div>${state.market==='japan'&&!['help','mapping'].includes(state.view)?jpQuickForm():'<span class="tag">已在本机解密</span>'}</div>`;$('status').innerHTML=state.market==='japan'?status():'';$('controls').innerHTML=state.market==='japan'&&!['help','mapping'].includes(state.view)?toolbar()+(['overview','sector'].includes(state.view)?jpPeriodOverview(state.view==='sector'?s:null):''):'';document.querySelectorAll('nav [data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===state.view||b.dataset.view==='overview'&&state.view==='sector'||b.dataset.view==='stocks'&&state.view==='stock'));document.querySelectorAll('[data-market]').forEach(b=>b.classList.toggle('active',b.dataset.market===state.market));renderContent();}
 $('clearCache').addEventListener('click',async()=>{if(busy)return;const cleared=await DashboardVault.clear();$('gateMessage').textContent=cleared?'本机加密缓存已清除，下次进入将重新下载。':'本机没有可清除的缓存，或浏览器不允许缓存访问。';});
 $('unlockForm').addEventListener('submit',unlock);$('lock').addEventListener('click',lock);$('showPassword').addEventListener('click',()=>{$('password').type=$('password').type==='password'?'text':'password';$('showPassword').textContent=$('password').type==='password'?'显示':'隐藏';});
-document.addEventListener('click',e=>{if(!DATA)return;const b=e.target.closest('button');if(!b||b.disabled)return;if(b.dataset.view){usSelected='';state.page=1;state.search='';route({view:b.dataset.view});}else if(b.dataset.market){cnStockCode='';cnQuery='';usSelected='';usDate='';usBase='';state.search='';state.page=1;route({market:b.dataset.market,view:'overview'});}else if(b.dataset.sector){state.search='';state.page=1;route({view:'sector',sector:b.dataset.sector});window.scrollTo(0,0);}else if(b.dataset.stock){state.search='';route({view:'stock',stock:b.dataset.stock});window.scrollTo(0,0);}else if(b.dataset.chart)route({chart:b.dataset.chart});else if(b.dataset.page){state.page=Number(b.dataset.page);renderContent();}else if(b.dataset.step){state.page=1;route({date:dates[dates.indexOf(state.date)+Number(b.dataset.step)],base:''});}else if(b.hasAttribute('data-latest'))route({date:dates.at(-1),base:''});else if(b.dataset.historyDate)route({date:b.dataset.historyDate,base:''});});
+document.addEventListener('click',e=>{if(!DATA)return;const b=e.target.closest('button');if(!b||b.disabled)return;if(b.dataset.view){usSelected='';state.page=1;state.search='';route({view:b.dataset.view});}else if(b.dataset.market){cnStockCode='';cnQuery='';usSelected='';usDate='';usBase='';state.search='';state.page=1;route({market:b.dataset.market,view:state.view==='reports'?'reports':'overview',report:''});}else if(b.dataset.sector){state.search='';state.page=1;route({view:'sector',sector:b.dataset.sector});window.scrollTo(0,0);}else if(b.dataset.stock){state.search='';route({view:'stock',stock:b.dataset.stock});window.scrollTo(0,0);}else if(b.dataset.chart)route({chart:b.dataset.chart});else if(b.dataset.page){state.page=Number(b.dataset.page);renderContent();}else if(b.dataset.step){state.page=1;route({date:dates[dates.indexOf(state.date)+Number(b.dataset.step)],base:''});}else if(b.hasAttribute('data-latest'))route({date:dates.at(-1),base:''});else if(b.dataset.historyDate)route({date:b.dataset.historyDate,base:''});});
 document.addEventListener('change',e=>{if(!DATA)return;const v=e.target.value;if(e.target.id==='date'){state.page=1;route({date:v,base:''});}if(e.target.id==='base')route({base:v});if(e.target.id==='stockSort'){state.sort=v;state.page=1;renderContent();}if(e.target.id==='sectorSort'){state.sectorSort=v;renderContent();}});
 document.addEventListener('input',e=>{if(DATA&&e.target.id==='search'){state.search=e.target.value;state.page=1;renderContent();}});
 window.addEventListener('hashchange',readRoute);
