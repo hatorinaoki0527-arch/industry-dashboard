@@ -132,7 +132,7 @@
       const canPriceChange = !breadth && isNum(first.open) && first.open !== 0 && isNum(last.close);
       const intervalChange = canPriceChange ? (last.close / first.open - 1) * 100 : null;
       return `<details class="report-week"><summary class="report-week-summary"><span><strong>${esc(key)} 当周</strong><small>${esc(first.date)} 至 ${esc(last.date)} · ${wr.length}日</small></span><span class="${trend(intervalChange)}">${breadth ? `${u}涨 / ${dn}跌` : "开收 " + esc(percent(intervalChange))}</span></summary><div class="report-week-body">${metric("实际覆盖日期", `${first.date} 至 ${last.date}`)}${metric("成交额有效天数", `${va.length}/${wr.length} 日`)}${metric("已采集成交额", va.length ? money(va.reduce((s, r) => s + r.amount, 0), d.currency || unit) : "—")}${metric("上涨 / 下跌天数", `${u} / ${dn} 日`)}${breadth ? "" : metric("区间开收变化（未复权）", percent(intervalChange), trend(intervalChange))}<p class="report-missing">${breadth ? "行业等权涨跌不计算价格变化。" : "按本周已归档区间的首日开盘至末日收盘计算；不是相对上周收盘的周收益。"}</p></div></details>`;
-    }).join("") : `<div class="report-panel report-empty">本月暂无归属于周一键的周记录。</div>`;
+    }).join("") : `<div class="report-panel report-empty">本月暂无周回顾记录。</div>`;
 
     const currencyUnit = d.currency || unit;
     const currency = currencyUnit === "CNY" ? "CNY（元）" : currencyUnit === "JPY" ? "JPY（日元）" : currencyUnit || "—";
@@ -154,5 +154,15 @@
     </div>`;
   }
 
-  global.DailyReport = { render };
+  function normalize(rows,kind){
+    const sorted=[...rows].sort((a,b)=>a.date.localeCompare(b.date));
+    return sorted.map((r,i)=>{
+      let previousClose=null;
+      if(isNum(r.close)&&isNum(r.delta)&&r.close-r.delta>0)previousClose=r.close-r.delta;
+      else if(kind==='stock'&&isNum(r.close)&&isNum(r.change)&&r.change>-100)previousClose=r.close/(1+r.change/100);
+      else if(kind==='index'&&i>0&&isNum(sorted[i-1].close)&&sorted[i-1].close>0&&isNum(r.close)&&isNum(r.change)&&Math.abs((r.close/sorted[i-1].close-1)*100-r.change)<=.011)previousClose=sorted[i-1].close;
+      return {...r,previousClose};
+    });
+  }
+  global.DailyReport = { render, normalize };
 })(window);

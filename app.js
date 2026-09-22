@@ -652,7 +652,7 @@ function reportRows(){
   if(china)rows=rows.map(r=>{const members=DATA.cnStocks?.days?.find(d=>d.date===r.date)?.rows.filter(x=>x.sector===sel.code)||[];return {...r,amount:members.length&&members.every(x=>valid(x.amount))?members.reduce((s,x)=>s+x.amount,0):null};});
   name=rows.at(-1)?.name||name;sectorName=china?'申万一级行业指数':'来源网页行业指数';source=china?'申万宏源研究行业指数；金额为新浪已采集成分股合计，非官方行业总额':'nikkei225jp 行业快照 · 尚缺四价及成交额';
  }
- rows=[...rows].sort((a,b)=>a.date.localeCompare(b.date)).map(r=>({...r,previousClose:valid(r.close)&&valid(r.change)&&r.change>-100?r.close/(1+r.change/100):null}));
+ rows=DailyReport.normalize(rows,kind);
  return {...sel,name,kind,sectorName,source,unit,currency,rows,asOf:rows.at(-1)?.date||dates.at(-1)};
 }
 function renderReports(){
