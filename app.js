@@ -547,6 +547,10 @@ function cnPeriodOverview(day,days,selected){
  const rows=(selected?[selected]:day.rows).map(r=>({row:r,m:cnCardMetrics(r,days,day.date,'',null)}));
  if(selected)return `<div class="period-strip" aria-label="行业各周期涨跌">${cnPeriods.map(([label,key])=>{const v=rows[0].m[key];return `<div><span>${label}</span><strong class="${tone(v)}">${pct(v)}</strong></div>`;}).join('')}<small>5 / 10 / 20交易日累计涨跌 · 缺数显示 —</small></div>`;
  const items=rows.map(x=>({code:x.row.code,name:x.row.name,value:x.m[cnPeriodKey]})),good=items.filter(x=>valid(x.value));
+ if(!good.length){
+  const latest=days.filter(d=>d.date<=day.date&&d.rows.some(r=>valid(r.level)&&valid(r.change))).at(-1)?.date;
+  return `<section class="period-board" aria-label="行业强弱对比"><h2>行业强弱 · 暂无可计算数据</h2><p>${esc(day.date)} 的${cnPeriodKey==='indexChange'?'行业指数尚未获取':'该周期历史样本不足'}，不能统计上涨、下跌和平盘数量。</p><p>最近有效行业日期：${esc(latest||'暂无')}。同日个股数据与排行可单独查看；不会用旧指数冒充当天数据。</p></section>`;
+ }
  const up=good.filter(x=>x.value>0).sort((a,b)=>b.value-a.value),down=good.filter(x=>x.value<0).sort((a,b)=>a.value-b.value),flat=good.length-up.length-down.length;
  const max=Math.max(.01,...good.map(x=>Math.abs(x.value)));
  const list=(rs,cls,offset=0)=>rs.map((r,i)=>`<button class="period-rank-row" data-us-sector="${esc(r.code)}"><span class="rank-no">${i+1+offset}</span><span class="rank-sector">${esc(r.name)}</span><span class="rank-track"><i class="${cls}" style="width:${Math.abs(r.value)/max*100}%"></i></span><strong class="${cls}">${pct(r.value)}</strong><span aria-hidden="true">›</span></button>`).join('');
@@ -581,7 +585,7 @@ function cnUpdateStatus(bundle,day,stockBundle){
  const count=day.rows.filter(r=>valid(r.level)&&valid(r.change)).length;
  const stock=stockBundle?.days?.find(x=>x.date===day.date),latestStock=stockBundle?.days?.at(-1)?.date;
  const failed=bundle.status?.state==='failed',stockFailed=stockBundle?.status?.state==='failed';
- const label=count===31?'行业数据齐全':count?'行业数据部分到达':'行业指数暂缺';
+ const label=count===31?'行业数据齐全':count?'行业数据部分到达':'等待行业来源更新';
  return `<div class="status ${count<31||failed||stockFailed?'warn':''}"><b>● ${label} · ${count}/31</b><span>观测日期 ${esc(day.date)} · 中国 A股</span><span>同日个股 ${stock?fmt(stock.rows.length,0)+'只':'暂缺'} · 个股最新归档 ${esc(latestStock||'暂无')}</span></div>${count<31?'<div class="notice">行业指数尚未全部到达，缺失项显示 —；已到达的同日个股与排行可正常查看，不使用昨日指数补位。</div>':''}${failed||stockFailed?`<div class="notice">最近采集：${failed?'行业接口失败；':''}${stockFailed?'个股接口失败；':''}已保留通过校验的历史数据。行业检查 ${esc(bundle.status?.checkedAt||bundle.status?.fetchedAt||'—')}；个股检查 ${esc(stockBundle?.status?.fetchedAt||'—')}。</div>`:''}`;
 }
 function renderUS(){

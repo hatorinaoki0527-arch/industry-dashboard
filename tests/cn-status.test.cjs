@@ -4,3 +4,10 @@ const ctx={valid:x=>typeof x==='number'&&Number.isFinite(x),fmt:x=>String(x),esc
 vm.createContext(ctx);vm.runInContext(source.slice(source.indexOf('function cnUpdateStatus('),source.indexOf('function renderUS(){')),ctx);
 test('partial indices and same-date stocks have separate coverage',()=>{const day={date:'2026-09-21',rows:[{level:100,change:1},{level:null,change:null}]};const html=ctx.cnUpdateStatus({status:{state:'partial'}},day,{days:[{date:day.date,rows:[{},{}]}],status:{state:'partial'}});assert.match(html,/1\/31/);assert.match(html,/同日个股 2只/);assert.match(html,/缺失项显示 —/);assert.doesNotMatch(html,/取数异常/)});
 test('different stock date is never described as same-day',()=>{const html=ctx.cnUpdateStatus({status:{state:'failed',fetchedAt:'check'}},{date:'2026-09-21',rows:[]},{days:[{date:'2026-09-18',rows:[{}]}],status:{state:'success'}});assert.match(html,/同日个股 暂缺/);assert.match(html,/个股最新归档 2026-09-18/);assert.match(html,/行业接口失败/)});
+test('all missing industry values are unavailable, never zero breadth',()=>{
+ const c={...ctx,cnCardMetrics:()=>({indexChange:null})};vm.createContext(c);
+ vm.runInContext("let cnPeriodKey='indexChange';"+source.slice(source.indexOf('function cnPeriodOverview('),source.indexOf("document.addEventListener('click',e=>{const b=e.target.closest('[data-cn-period]')")),c);
+ const day={date:'2026-09-22',rows:[{code:'a',name:'行业',level:null,change:null}]};
+ const html=c.cnPeriodOverview(day,[{date:'2026-09-21',rows:[{level:100,change:1}]},day]);
+ assert.match(html,/暂无可计算数据/);assert.match(html,/2026-09-21/);assert.doesNotMatch(html,/上涨 0|下跌 0|平盘 0/);
+});
