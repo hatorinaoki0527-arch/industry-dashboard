@@ -362,7 +362,8 @@ function cnListHead(key){return `<div class="stock-row cn-stock-row head"><span>
 
 
 function cnSummaryStats(indexDay,stockDay){
- const sectors=new Set((indexDay.rows||[]).filter(r=>valid(r.level)&&r.level>0).map(r=>r.code));
+ const known=new Set((indexDay.rows||[]).map(r=>r.code));
+ const sectors=new Set((indexDay.rows||[]).filter(r=>valid(r.level)&&r.level>0&&valid(r.change)).map(r=>r.code));
  const same=stockDay?.date===indexDay.date;
  const raw=same?(stockDay.rows||[]):[],counts=new Map();
  raw.forEach(r=>counts.set(r.code,(counts.get(r.code)||0)+1));
@@ -370,7 +371,7 @@ function cnSummaryStats(indexDay,stockDay){
  const changes=rows.filter(r=>valid(r.change)),amounts=rows.filter(r=>valid(r.amount)&&r.amount>=0);
  const sc=same?(stockDay.sectors||[]):[];
  const expected=sc.length&&sc.every(r=>valid(r.expected)&&r.expected>=0)?sc.reduce((a,r)=>a+r.expected,0):null;
- return {industries:sectors.size,same,count:rows.length,expected,validCount:changes.length,
+ return {industries:sectors.size,stockIndustries:new Set(changes.filter(r=>known.has(r.sector)).map(r=>r.sector)).size,same,count:rows.length,expected,validCount:changes.length,
  up:changes.filter(r=>r.change>0).length,down:changes.filter(r=>r.change<0).length,flat:changes.filter(r=>r.change===0).length,
  mean:changes.length?changes.reduce((a,r)=>a+r.change,0)/changes.length:null,
  amount:amounts.length?amounts.reduce((a,r)=>a+r.amount,0):null,amountCount:amounts.length,
@@ -384,7 +385,7 @@ function cnExclusionNotice(day){
 function cnSummary(indexDay,stockDay){
  const m=cnSummaryStats(indexDay,stockDay),none='所选日期无个股归档，不借用其他日期';
  const coverage=m.same?`个股样本 ${fmt(m.count,0)} / ${valid(m.expected)?fmt(m.expected,0):'—'}只`:'所选日期个股尚未归档';
- return `<div class="summary cn-summary" aria-label="中国市场每日汇总">${metric('行业覆盖',m.industries+'<small style="display:inline;font-size:16px"> / 31</small>',coverage)}${metric('上涨 / 下跌个股',m.same&&m.validCount?`<span class="up">${fmt(m.up,0)}</span><span style="font-size:16px"> / </span><span class="down">${fmt(m.down,0)}</span>`:'—',m.same?`平盘 ${fmt(m.flat,0)} · 涨跌有效 ${fmt(m.validCount,0)} · 未纳入 ${valid(m.missing)?fmt(m.missing,0):'—'}`:none)}${metric('样本个股等权表现',pct(m.mean),m.same?'有效个股日涨跌平均；非全A、非官方指数':none,tone(m.mean))}${metric('已获取成交额',valid(m.amount)?fmt(m.amount/1e8)+'<small style="display:inline;font-size:14px"> 亿元</small>':'—',m.same?`人民币 · 金额有效 ${fmt(m.amountCount,0)}/${valid(m.expected)?fmt(m.expected,0):'—'}只；不含缺失项`:none)}</div><p class="chart-note">统计范围：申万一级行业指数当前成分中的已采集样本 · 个股来源新浪 · 行情日期 ${esc(indexDay.date)}${m.same?' · 成分观察 '+esc(stockDay.membershipAsOf||'—'):''}。未纳入样本不直接判定为停牌；成交额不等于净流入。</p>${cnExclusionNotice(m.same?stockDay:null)}`;
+ return `<div class="summary cn-summary" aria-label="中国市场每日汇总">${metric('有个股样本的行业',m.stockIndustries+'<small style="display:inline;font-size:16px"> / 31</small>',coverage+`<br><strong>官方行业指数 ${m.industries}/31${m.industries<31?' · 暂未齐全':''}</strong>`)}${metric('上涨 / 下跌个股',m.same&&m.validCount?`<span class="up">${fmt(m.up,0)}</span><span style="font-size:16px"> / </span><span class="down">${fmt(m.down,0)}</span>`:'—',m.same?`平盘 ${fmt(m.flat,0)} · 涨跌有效 ${fmt(m.validCount,0)} · 未纳入 ${valid(m.missing)?fmt(m.missing,0):'—'}`:none)}${metric('样本个股等权表现',pct(m.mean),m.same?'有效个股日涨跌平均；非全A、非官方指数':none,tone(m.mean))}${metric('已获取成交额',valid(m.amount)?fmt(m.amount/1e8)+'<small style="display:inline;font-size:14px"> 亿元</small>':'—',m.same?`人民币 · 金额有效 ${fmt(m.amountCount,0)}/${valid(m.expected)?fmt(m.expected,0):'—'}只；不含缺失项`:none)}</div><p class="chart-note">统计范围：申万一级行业指数当前成分中的已采集样本 · 个股来源新浪 · 行情日期 ${esc(indexDay.date)}${m.same?' · 成分观察 '+esc(stockDay.membershipAsOf||'—'):''}。未纳入样本不直接判定为停牌；成交额不等于净流入。</p>${cnExclusionNotice(m.same?stockDay:null)}`;
 }
 function cnStockContext(stock){
  const industry=DATA.cnIndustries?.days?.find(d=>d.date===usDate)?.rows?.find(r=>r.code===stock.sector);

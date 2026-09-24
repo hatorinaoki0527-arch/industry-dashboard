@@ -11,3 +11,11 @@ test('all missing industry values are unavailable, never zero breadth',()=>{
  const html=c.cnPeriodOverview(day,[{date:'2026-09-21',rows:[{level:100,change:1}]},day]);
  assert.match(html,/暂无可计算数据/);assert.match(html,/2026-09-21/);assert.doesNotMatch(html,/上涨 0|下跌 0|平盘 0/);
 });
+test('stock sector coverage is separate from official index coverage and same-date only',()=>{
+ const c={...ctx};vm.createContext(c);vm.runInContext(source.slice(source.indexOf('function cnSummaryStats('),source.indexOf('function cnExclusionNotice(')),c);
+ const day={date:'2026-09-23',rows:[{code:'a',level:null,change:null},{code:'b',level:100,change:null}]};
+ const stocks={date:day.date,rows:[{code:'1',sector:'a',change:1},{code:'2',sector:'b',change:-1},{code:'3',sector:'unknown',change:1}],sectors:[]};
+ let m=c.cnSummaryStats(day,stocks);assert.equal(m.industries,0);assert.equal(m.stockIndustries,2);
+ m=c.cnSummaryStats(day,{...stocks,date:'2026-09-22'});assert.equal(m.stockIndustries,0);
+ m=c.cnSummaryStats(day,{...stocks,rows:[...stocks.rows,stocks.rows[0]]});assert.equal(m.stockIndustries,1);
+});
