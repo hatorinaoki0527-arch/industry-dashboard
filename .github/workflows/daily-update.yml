@@ -40,7 +40,7 @@ jobs:
           if [ -d prices ]; then cp -R prices site/; fi
       - name: Validate and stage release receipt
         run: |
-          node -e "const fs=require('fs'),c=require('crypto'),r=JSON.parse(fs.readFileSync('release.json'));if(Object.keys(r).sort().join(',')!=='builtAt,chinaDigest,vaultSha256,version'||r.version!==1||!(/^[a-f0-9]{64}$/.test(r.chinaDigest))||r.vaultSha256!==c.createHash('sha256').update(fs.readFileSync('vault.json')).digest('hex'))throw Error('Invalid release receipt')"
+          node -e "const fs=require('fs'),c=require('crypto'),r=JSON.parse(fs.readFileSync('release.json'));if(Object.keys(r).sort().join(',')!=='archiveDigest,builtAt,chinaDigest,vaultSha256,version'||r.version!==1||!(/^[a-f0-9]{64}$/.test(r.archiveDigest))||!(/^[a-f0-9]{64}$/.test(r.chinaDigest))||r.vaultSha256!==c.createHash('sha256').update(fs.readFileSync('vault.json')).digest('hex'))throw Error('Invalid release receipt')"
           cp release.json site/
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
