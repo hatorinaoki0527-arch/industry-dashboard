@@ -539,7 +539,7 @@ function cnSectorCard(row, metrics) {
 // Test: duplicate/future dates, incomplete 31-row archives, missing or nonpositive levels.
 // Test: mismatched stock date, unknown/zero expected count, missing base date, and zero changes.
 
-function marketColors(){document.body.dataset.market=state.market;const note=document.querySelector(".aside-note");if(note)note.innerHTML=(state.market==='china'?'红涨 · 绿跌':'绿涨 · 红跌')+'<br>平盘 / 缺数为灰色<br>各市场独立日期';}
+function marketColors(){document.body.dataset.market=state.market;const note=document.querySelector(".aside-note");if(note)note.innerHTML=(state.market==='china'?'红涨 · 绿跌':'绿涨 · 红跌')+' · 平盘 / 缺数为灰色 · 各市场独立日期';}
 
 
 let cnPeriodKey='indexChange';
