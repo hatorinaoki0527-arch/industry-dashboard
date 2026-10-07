@@ -8,3 +8,5 @@ test('a locked stale page reloads; an unlocked page preserves its session and sh
 test('offline checks preserve the page and do not claim a new version',async()=>{const f=fake(true,async()=>{throw Error('offline')});await new Promise(setImmediate);assert.equal(f.count(),0);assert.equal(f.banner.hidden,true)});
 const {versionHtml}=require('../asset-versions.cjs');
 test('deployment fingerprints follow file contents, not manually maintained dates',()=>{const a=versionHtml(latest,f=>'unchanged '+f),b=versionHtml(latest,f=>f==='cn-market.js'?'fixed code':'unchanged '+f);assert.equal(V.changed(a,b),true);assert.equal(V.changed(a,versionHtml(latest,f=>'unchanged '+f)),false)});
+
+test('browser extension injection does not trigger a false page update',()=>assert.equal(V.changed('<script src="chrome-extension://example/inject.js"></script>'+latest,latest),false));

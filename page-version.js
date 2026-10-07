@@ -2,7 +2,7 @@
 'use strict';
 function signature(html) {
  return [...html.matchAll(/<(?:script|link)\b[^>]*\b(?:src|href)=["']([^"']+)["'][^>]*>/gi)]
-  .map(m=>m[1]).filter(p=>/\.(?:js|css)(?:\?|$)/.test(p)).sort().join('|');
+  .map(m=>m[1]).filter(p=>/^[a-zA-Z0-9_.-]+\.(?:js|css)(?:\?|$)/.test(p)).sort().join('|');
 }
 function changed(current, incoming) { const next=signature(incoming); return Boolean(next && next!==signature(current)); }
 function install(env) {
