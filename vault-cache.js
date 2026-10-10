@@ -9,30 +9,31 @@ globalThis.DashboardVault = (() => {
  }
  async function storage(){try{return await caches.open(CACHE);}catch{return null;}}
  async function clear(){try{return await caches.delete(CACHE);}catch{return false;}}
- async function load({notify=()=>{},timeoutMs=15000,url=new URL('vault.json',location.href).href}={}){
-  const cache=await storage();let cached=null,old=null;
-  if(cache){try{cached=await cache.match(url);if(cached)old=validate(await cached.clone().json());}catch{cached=null;}}
+ async function digest(raw){return [...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(raw)))].map(n=>n.toString(16).padStart(2,'0')).join('');}
+ async function load({notify=()=>{},timeoutMs=30000,downloadTimeoutMs=180000,url=new URL('vault.json',location.href).href}={}){
+  const cache=await storage();let cached=null,old=null,oldSha='';
+  if(cache){try{cached=await cache.match(url);if(cached){const raw=await cached.clone().text();old=validate(JSON.parse(raw));oldSha=await digest(raw);}}catch{cached=null;}}
   const headers={};if(old&&cached.headers.get('etag'))headers['If-None-Match']=cached.headers.get('etag');
   else if(old&&cached.headers.get('last-modified'))headers['If-Modified-Since']=cached.headers.get('last-modified');
   notify(old?'正在检查数据版本…':'首次载入，正在下载加密数据…');
-  const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),timeoutMs);
+  const controller=new AbortController();let timer=setTimeout(()=>controller.abort(),timeoutMs);
   let response,raw;
   try{
    response=await fetch(url,{cache:cache?'no-store':'no-cache',headers,signal:controller.signal});
-   if(response.status!==304&&response.ok){notify('正在下载新版加密数据…');raw=await response.text();}
+   if(response.status!==304&&response.ok){clearTimeout(timer);timer=setTimeout(()=>controller.abort(),downloadTimeoutMs);notify('正在下载新版加密数据…');raw=await response.text();}
   }catch(error){
-   if(old)return {vault:old,source:'offline',savedAt:cached.headers.get('x-dashboard-cached-at'),persist:async()=>true};
+   if(old)return {vault:old,sha256:oldSha,source:'offline',savedAt:cached.headers.get('x-dashboard-cached-at'),persist:async()=>true};
    throw Error('网络连接失败，且本机没有可用缓存。请联网后重试。');
   }finally{clearTimeout(timer);}
   if(response.status===304){
    if(!old)throw Error('数据版本校验异常，请重试。');
-   return {vault:old,source:'cache',persist:async()=>true};
+   return {vault:old,sha256:oldSha,source:'cache',persist:async()=>true};
   }
-  if((response.status>=500||response.status===429)&&old)return {vault:old,source:'offline',savedAt:cached.headers.get('x-dashboard-cached-at'),persist:async()=>true};
+  if((response.status>=500||response.status===429)&&old)return {vault:old,sha256:oldSha,source:'offline',savedAt:cached.headers.get('x-dashboard-cached-at'),persist:async()=>true};
   if(!response.ok)throw Error(`无法取得加密数据（HTTP ${response.status}），请稍后重试。`);
   let vault;try{vault=validate(JSON.parse(raw));}catch{throw Error('新版加密数据不完整，原有缓存已保留。请稍后重试。');}
   // Only the caller that successfully decrypts and parses this candidate may save it.
-  return {vault,source:'network',persist:async()=>{
+  return {vault,sha256:await digest(raw),source:'network',persist:async()=>{
    if(!cache)return false;
    const savedHeaders={'content-type':'application/json','x-dashboard-cached-at':new Date().toISOString()};
    for(const name of ['etag','last-modified'])if(response.headers.get(name))savedHeaders[name]=response.headers.get(name);

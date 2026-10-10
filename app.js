@@ -7,38 +7,66 @@ const money=v=>!valid(v)?'—':Math.abs(v)>=1e8?fmt(v/1e8)+'亿':Math.abs(v)>=1e
 const numCode=c=>String(c).endsWith('0')?String(c).slice(0,-1):String(c), meta=n=>INDUSTRY_DEFINITIONS[n]||INDUSTRY_DEFINITIONS[n.replaceAll('･','・')]||{cn:n,group:'其他'};
 let kYears=1;const stockPrices=new Map();
 let historyKey=null,historySalt='',historyBusy=false,historyError='';
+let sessionMaterial=null,dataUpdates=null;
 let DATA=null, dates=[], byDate=new Map(), byStock=new Map(), epoch=0, busy=false;
 let state={view:'reports',market:'china',report:'',date:'',base:'',sector:'',stock:'',chart:'close',sort:'amount',sectorSort:'change',search:'',page:1};
 const rowObj=r=>Object.fromEntries(DATA.columns.map((c,i)=>[c,r[i]]));
 const day=()=>byDate.get(state.date), sector=()=>day()?.sectors.find(s=>s.code===state.sector), title=s=>meta(s.name).cn;
 const rowFor=(code,date=state.date)=>byStock.get(code)?.get(date);
 const prior=()=>dates[dates.indexOf(state.date)-1], baseDay=()=>byDate.get(state.base||prior());
-function accept(data){
+function accept(data,preserve=false){
  if(data.schemaVersion!==1||!Array.isArray(data.days)||!data.days.length||!Array.isArray(data.columns))throw Error('不支持的数据格式');
  stockPrices.clear();DATA=data; dates=data.days.map(d=>d.date);byDate=new Map();byStock=new Map();
  for(const d of data.days)d.records=d.rows.map(rowObj);
  DATA.days=data.returnsEnriched?data.days:jpEnrichReturns(data.days);
  for(const d of DATA.days){byDate.set(d.date,d);for(const r of d.records){if(!byStock.has(r.code))byStock.set(r.code,new Map());byStock.get(r.code).set(d.date,r);}}
- state.date=dates.at(-1);$('gate').hidden=true;$('workspace').hidden=false;readRoute();
+ if(!preserve||!dates.includes(state.date))state.date=dates.at(-1);$('gate').hidden=true;$('workspace').hidden=false;if(preserve)render();else readRoute();
 }
 function bytes(s){return Uint8Array.from(atob(s),c=>c.charCodeAt(0));}
+async function decodeVault(v,material){
+ const key=await crypto.subtle.deriveKey({name:'PBKDF2',salt:bytes(v.salt),iterations:v.iterations,hash:'SHA-256'},material,{name:'AES-GCM',length:256},false,['decrypt']);
+ let plain;try{plain=await crypto.subtle.decrypt({name:'AES-GCM',iv:bytes(v.iv)},key,bytes(v.data));}catch{throw Error('密码不正确，或加密文件损坏。请重新输入网站访问密码。');}
+ if(!('DecompressionStream' in window))throw Error('请使用新版 Chrome、Safari 或 Edge 打开。');
+ const parsed=JSON.parse(await new Response(new Blob([plain]).stream().pipeThrough(new DecompressionStream('gzip'))).text());
+ if(parsed.schemaVersion!==1||!Array.isArray(parsed.days)||!parsed.days.length||!Array.isArray(parsed.columns))throw Error('不支持的数据格式');
+ return {parsed,key};
+}
+function updateNotice(status){
+ $('loadStatus').className='load-status'+(status==='offline'?' warn':'');
+ const message=status==='offline'?'⚠ 当前为缓存行情，尚未确认最新版本；将自动重试，恢复联网后继续更新。':status==='loading'?'发现新版行情，正在后台下载；当前数据保留，完成后自动更新。':'已核对服务器版本 · 行情自动检查，无更新时无需重复下载。';
+ $('loadStatus').innerHTML='<span>'+message+'</span> <button class="quiet" type="button" data-data-retry>检查更新</button>';
+}
+async function refreshData(expectedSha){
+ if(!DATA||!sessionMaterial)throw Error('页面已锁定');
+ const attempt=epoch,material=sessionMaterial;
+ const loaded=await DashboardVault.load();
+ if(loaded.source==='offline'||loaded.sha256!==expectedSha)throw Error('新版下载尚未成功');
+ const {parsed,key}=await decodeVault(loaded.vault,material);
+ if(attempt!==epoch||!DATA||material!==sessionMaterial)throw Error('页面已锁定');
+ const oldJapan=dates.at(-1),nextJapan=parsed.days.at(-1).date;
+ const oldOther=(state.market==='china'?DATA.cnIndustries:DATA.usIndustries)?.days?.at(-1)?.date;
+ const nextOther=(state.market==='china'?parsed.cnIndustries:parsed.usIndustries)?.days?.at(-1)?.date;
+ state.date=DashboardUpdates.followDate(state.date,oldJapan,nextJapan);
+ if(nextOther)usDate=DashboardUpdates.followDate(usDate,oldOther,nextOther);
+ await loaded.persist();if(attempt!==epoch||material!==sessionMaterial)throw Error('页面已锁定');
+ epoch++;historyBusy=false;historyError='';historyKey=key;historySalt=loaded.vault.salt;accept(parsed,true);
+ return loaded.sha256;
+}
 async function unlock(e){
  e.preventDefault();if(busy)return;busy=true;const attempt=++epoch;const password=$('password').value;$('password').value='';$('unlock').disabled=true;$('gateMessage').textContent='正在下载并解密数据…';
  try{
   const loaded=await DashboardVault.load({notify:message=>{$('gateMessage').textContent=message;}});
-  const v=loaded.vault;$('gateMessage').textContent='正在本机解密并整理数据…';if(v.version!==1||v.cipher!=='AES-256-GCM'||v.kdf!=='PBKDF2-SHA256'||v.iterations!==600000||v.compression!=='gzip')throw Error('加密格式不匹配，请刷新页面。');
+  $('gateMessage').textContent='正在本机解密并整理数据…';
   const material=await crypto.subtle.importKey('raw',new TextEncoder().encode(password),'PBKDF2',false,['deriveKey']);
-  const key=await crypto.subtle.deriveKey({name:'PBKDF2',salt:bytes(v.salt),iterations:v.iterations,hash:'SHA-256'},material,{name:'AES-GCM',length:256},false,['decrypt']);
-  let plain;try{plain=await crypto.subtle.decrypt({name:'AES-GCM',iv:bytes(v.iv)},key,bytes(v.data));}catch{throw Error('密码不正确，或加密文件损坏。请重新输入网站访问密码。');}
-  if(!('DecompressionStream' in window))throw Error('请使用新版 Chrome、Safari 或 Edge 打开。');
-  const text=await new Response(new Blob([plain]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
-  const parsed=JSON.parse(text);if(parsed.schemaVersion!==1||!Array.isArray(parsed.days)||!parsed.days.length||!Array.isArray(parsed.columns))throw Error('不支持的数据格式');
-  if(attempt!==epoch)return;const saved=await loaded.persist();if(attempt!==epoch)return;historyKey=key;historySalt=v.salt;historyError='';accept(parsed);$('gateMessage').textContent='';
-  $('loadStatus').className='load-status'+(loaded.source==='offline'?' warn':'');
-  $('loadStatus').textContent=loaded.source==='offline'?'⚠ 未能连接服务器确认更新，当前显示本机缓存。请核对各市场行情日期，联网后重新进入。':loaded.source==='cache'?'已核对服务器版本 · 使用本机加密缓存，无需重复下载行情。':saved?'已载入新版数据并保存加密缓存，下次无更新时无需重下。':'数据已载入；浏览器未允许本机缓存，下次可能需要重新下载。';
+  const {parsed,key}=await decodeVault(loaded.vault,material);
+  if(attempt!==epoch)return;await loaded.persist();if(attempt!==epoch)return;
+  historyKey=key;historySalt=loaded.vault.salt;historyError='';sessionMaterial=material;accept(parsed);$('gateMessage').textContent='';
+  updateNotice(loaded.source==='offline'?'offline':'current');dataUpdates?.stop();dataUpdates=DashboardUpdates.install({initialSha:loaded.sha256,refresh:refreshData,notify:updateNotice});
  }catch(error){$('gateMessage').textContent=error.message||'暂时无法载入，请重试。';}finally{busy=false;$('unlock').disabled=false;}
 }
-function lock(){epoch++;historyKey=null;stockPrices.clear();historySalt='';historyBusy=false;historyError='';DATA=null;dates=[];byDate.clear();byStock.clear();$('content').replaceChildren();$('heading').replaceChildren();$('controls').replaceChildren();$('status').replaceChildren();$('workspace').hidden=true;$('gate').hidden=false;$('password').value='';$('password').focus();}
+document.addEventListener('click',e=>{if(e.target.closest('[data-data-retry]'))dataUpdates?.check(true);});
+
+function lock(){epoch++;dataUpdates?.stop();dataUpdates=null;sessionMaterial=null;historyKey=null;stockPrices.clear();historySalt='';historyBusy=false;historyError='';DATA=null;dates=[];byDate.clear();byStock.clear();$('content').replaceChildren();$('heading').replaceChildren();$('controls').replaceChildren();$('status').replaceChildren();$('workspace').hidden=true;$('gate').hidden=false;$('password').value='';$('password').focus();}
 function route(p){historyError='';Object.assign(state,p);const q=new URLSearchParams();for(const key of ['view','market','date','base','sector','stock','chart','report'])if(state[key])q.set(key,state[key]);const h=q.toString();if(location.hash.slice(1)===h)render();else location.hash=h;}
 function readRoute(){if(!DATA)return;const q=new URLSearchParams(location.hash.slice(1));for(const key of ['view','market','date','base','sector','stock','chart','report'])if(q.has(key))state[key]=q.get(key);if(!dates.includes(state.date))state.date=dates.at(-1);if(!dates.includes(state.base)||state.base>=state.date)state.base='';if(!['overview','stocks','sector','stock','help','mapping','reports'].includes(state.view))state.view='overview';if(!['japan','china','usa'].includes(state.market))state.market='japan';if(!['close','change','amount'].includes(state.chart))state.chart='close';render();}
 
