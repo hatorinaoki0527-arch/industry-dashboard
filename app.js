@@ -610,12 +610,35 @@ document.addEventListener('input',e=>{if(e.target.id==='cnQuickInput')cnQuickRes
 document.addEventListener('submit',e=>{if(e.target.id!=='cnQuickForm')return;e.preventDefault();cnQuickResults();const hits=$('cnQuickResults')?.querySelectorAll('[data-cn-quick]');if(hits?.length===1)cnQuickOpen(hits[0].dataset.cnQuick);});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&e.target.closest('#cnQuickForm')){$('cnQuickResults').hidden=true;$('cnQuickInput').focus();}});
 document.addEventListener('click',e=>{const b=e.target.closest('[data-cn-quick]');if(b&&DATA&&state.market==='china')cnQuickOpen(b.dataset.cnQuick);else if(!e.target.closest('#cnQuickForm')&&$('cnQuickResults'))$('cnQuickResults').hidden=true;});
-function cnUpdateStatus(bundle,day,stockBundle){
+function cnUpdateStatus(bundle,day,stockBundle,health,now=new Date()){
+ // Re-evaluate freshness even when the encrypted bundle remains cached overnight.
+ const sh=new Date(now.getTime()+8*3600000), holidays=[['01-01','01-03'],['02-15','02-23'],['04-04','04-06'],['05-01','05-05'],['06-19','06-21'],['09-25','09-27'],['10-01','10-07']];
+ if(sh.getUTCHours()<19)sh.setUTCDate(sh.getUTCDate()-1);
+ while(sh.getUTCFullYear()===2026&&(sh.getUTCDay()===0||sh.getUTCDay()===6||holidays.some(([a,b])=>{const d=sh.toISOString().slice(5,10);return a<=d&&d<=b;})))sh.setUTCDate(sh.getUTCDate()-1);
+ const expected=sh.getUTCFullYear()===2026?sh.toISOString().slice(0,10):null;
+ if(health){
+  health={...health,expectedSession:expected,calendarVerified:!!expected&&health.calendarVerified,datasets:Object.fromEntries(Object.entries(health.datasets||{}).map(([key,d])=>[key,{...d,stale:!!expected&&(!d.latestDate||d.latestDate<expected),calendarVerified:!!expected&&d.calendarVerified}]))};
+ }
+ const datasets=health?.datasets||{},labels={stocks:'个股',industries:'行业',benchmarks:'基准指数'};
+ const issues=Object.entries(labels).flatMap(([key,label])=>{
+  const d=datasets[key];if(!d)return [];
+  const messages=[];
+  if(d.stale)messages.push(`${label}数据已过期：最新 ${esc(d.latestDate||'暂无')}，应有 ${esc(health.expectedSession||'待核验')}`);
+  if(d.missingDates?.length)messages.push(`${label}缺失交易日：${d.missingDates.map(esc).join('、')}`);
+  if(d.noArchive)messages.push(`${label}暂无归档，历史覆盖无法核验`);
+  if(d.earlierCalendarUnverified)messages.push(`${label}更早年份交易日历未核验；缺失日期检查自 ${esc(d.calendarCheckedFrom)} 起`);
+  if(!d.calendarVerified)messages.push(`${label}交易日历未核验`);
+  return messages;
+ });
+ if(!health)issues.push('数据新鲜度与缺失交易日尚未核验，请更新数据包');
+ if(health&&!health.calendarVerified)issues.push('交易日历未核验，不能确认数据已更新');
+ if(health?.pending?.length)issues.push(`行业未齐全日期：${health.pending.map(d=>esc(d.date)+' '+d.observed+'/'+d.expected).join('、')}`);
+ const healthNotice=issues.length?`<div class="notice" role="alert"><b>数据可靠性警告</b><br>${issues.join('<br>')}<br>检查时间 ${esc(health?.checkedAt||'暂无')}；历史缺口不会因最新日期追上而消失。</div>`:'';
  const count=day.rows.filter(r=>valid(r.level)&&valid(r.change)).length;
  const stock=stockBundle?.days?.find(x=>x.date===day.date),latestStock=stockBundle?.days?.at(-1)?.date;
  const failed=bundle.status?.state==='failed',stockFailed=stockBundle?.status?.state==='failed';
- const label=count===31?'行业数据齐全':count?'行业数据部分到达':'等待行业来源更新';
- return `<div class="status ${count<31||failed||stockFailed?'warn':''}"><b>● ${label} · ${count}/31</b><span>观测日期 ${esc(day.date)} · 中国 A股</span><span>同日个股 ${stock?fmt(stock.rows.length,0)+'只':'暂缺'} · 个股最新归档 ${esc(latestStock||'暂无')}</span></div>${count<31?'<div class="notice">行业指数尚未全部到达，缺失项显示 —；已到达的同日个股与排行可正常查看，不使用昨日指数补位。</div>':''}${failed||stockFailed?`<div class="notice">最近采集：${failed?'行业接口失败；':''}${stockFailed?'个股接口失败；':''}已保留通过校验的历史数据。行业检查 ${esc(bundle.status?.checkedAt||bundle.status?.fetchedAt||'—')}；个股检查 ${esc(stockBundle?.status?.fetchedAt||'—')}。</div>`:''}`;
+ const label=count===31?'所选日期行业数据齐全':count?'行业数据部分到达':'等待行业来源更新';
+ return healthNotice+`<div class="status ${count<31||failed||stockFailed||issues.length?'warn':''}"><b>● ${label} · ${count}/31</b><span>观测日期 ${esc(day.date)} · 中国 A股</span><span>同日个股 ${stock?fmt(stock.rows.length,0)+'只':'暂缺'} · 个股最新归档 ${esc(latestStock||'暂无')}</span></div>${count<31?'<div class="notice">行业指数尚未全部到达，缺失项显示 —；已到达的同日个股与排行可正常查看，不使用昨日指数补位。</div>':''}${failed||stockFailed?`<div class="notice">最近采集：${failed?'行业接口失败；':''}${stockFailed?'个股接口失败；':''}已保留通过校验的历史数据。行业检查 ${esc(bundle.status?.checkedAt||bundle.status?.fetchedAt||'—')}；个股检查 ${esc(stockBundle?.status?.fetchedAt||'—')}。</div>`:''}`;
 }
 function renderUS(){
  marketColors();
@@ -625,12 +648,12 @@ function renderUS(){
  $('status').innerHTML='';$('controls').innerHTML='';
  document.querySelectorAll('[data-market]').forEach(b=>b.classList.toggle('active',b.dataset.market===state.market));
  document.querySelectorAll('nav [data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===state.view));
- if(!days.length){$('content').innerHTML='<section class="panel empty"><h2>等待行业数据</h2><p>尚无通过校验的该市场行业数据。</p></section>';return;}
+ if(!days.length){if(china)$('status').innerHTML=cnUpdateStatus(bundle||{}, {date:'暂无',rows:[]},DATA.cnStocks,DATA.cnAutoHealth);$('content').innerHTML='<section class="panel empty"><h2>等待行业数据</h2><p>尚无通过校验的该市场行业数据。</p></section>';return;}
  if(!days.some(d=>d.date===usDate))usDate=days.at(-1).date;
  const d=days.find(d=>d.date===usDate), earlier=days.filter(x=>x.date<usDate);
  if(!earlier.some(x=>x.date===usBase))usBase=earlier.at(-1)?.date||'';
  const base=days.find(x=>x.date===usBase), selected=d.rows.find(x=>x.code===usSelected);
- $('status').innerHTML=china?cnUpdateStatus(bundle,d,DATA.cnStocks):`<div class="status ${bundle.status.state==='success'?'':'warn'}"><b>${bundle.status.state==='success'?'● 已读取来源日期快照':bundle.status.state==='waiting_for_close'?'● 等待美股收盘日期快照，保留上次数据':'● 取数异常，保留旧快照'}</b><span>来源日期 ${esc(d.date)} · ${marketName}市场</span><span>归档 ${days.length} 日 · ${count} 个指数</span></div>`;
+ $('status').innerHTML=china?cnUpdateStatus(bundle,d,DATA.cnStocks,DATA.cnAutoHealth):`<div class="status ${bundle.status.state==='success'?'':'warn'}"><b>${bundle.status.state==='success'?'● 已读取来源日期快照':bundle.status.state==='waiting_for_close'?'● 等待美股收盘日期快照，保留上次数据':'● 取数异常，保留旧快照'}</b><span>来源日期 ${esc(d.date)} · ${marketName}市场</span><span>归档 ${days.length} 日 · ${count} 个指数</span></div>`;
  $('controls').innerHTML=`<div class="toolbar"><label>观测日期<select id="usDate">${[...days].reverse().map(x=>`<option ${x.date===usDate?'selected':''}>${x.date}</option>`).join('')}</select></label><label>对比日期<select id="usBase"><option value="">无更早快照</option>${[...earlier].reverse().map(x=>`<option ${x.date===usBase?'selected':''}>${x.date}</option>`).join('')}</select></label><a href="${source}" target="_blank" rel="noopener noreferrer">查看来源网页 ↗</a><button class="button" data-cn-latest>最新</button></div>`;
  const note=china?'<div class="notice">申万官方行业指数日报；7个分组仅方便阅读，不是新增分类层级。31行业始终常显。卡片主涨跌和5／20日为申万指数表现（点位比值），不是个股等权收益；上涨／下跌家数来自同日有效个股，灰色含平盘和缺数。对比差是两日各自日涨跌幅之差。个股与成交量／成交额／涨幅排行按实际覆盖展示；原代表／活跃评分仍缺字段。</div>':'<div class="notice">来源标注的行业指数涨跌，不是行业个股等权统计。两套分类分别排名。仅保存实际获取的日期，不补造历史；代表TOP10、活跃TOP10及真实成交额尚缺。北京时间07:17、08:17独立自动更新；盘中仅有时分的响应不会写入日线。网页未提供最终收盘标志，按来源日期展示快照。</div>';
  if(state.view==='help'&&china){$('content').innerHTML=note+'<section class="panel"><h2>中国市场数据口径</h2><p>来源：申万宏源研究官方指数日报。日期取源数据bargaindate，指数点位为closeindex，日涨跌幅为markup。行情日期与抓取时间分别保存；行业与个股按各自来源日期独立更新；申万分析日报缺项时由官方指数历史日线补取。行业缺数显示 —，重复代码或日期异常仍拒绝；已有有效数值不被缺数覆盖。北京时间每日08:17、18:17、19:47随统一任务检查，按交易日更新。历史保留实际获取的数据与覆盖状态；仅有个股的日期不填造行业指数。</p><p>个股来源新浪行情，成交量单位股、成交额单位元。按申万指数当前成分采集；停牌或缺数不参与排行。原代表／活跃分所需的股本、复权历史及筛选条件尚未齐全；当前展示真实成交量、成交额和涨幅榜。个股历史与上榜记录从归档之日起逐日积累。</p></section>';return;}

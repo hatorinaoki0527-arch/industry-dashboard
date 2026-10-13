@@ -19,3 +19,25 @@ test('stock sector coverage is separate from official index coverage and same-da
  m=c.cnSummaryStats(day,{...stocks,date:'2026-09-22'});assert.equal(m.stockIndustries,0);
  m=c.cnSummaryStats(day,{...stocks,rows:[...stocks.rows,stocks.rows[0]]});assert.equal(m.stockIndustries,1);
 });
+
+test('complete selected historical day still warns about stale datasets and permanent gaps',()=>{
+ const health={expectedSession:'2026-10-12',calendarVerified:true,checkedAt:'checked',datasets:{
+ stocks:{latestDate:'2026-10-09',stale:true,calendarVerified:true,missingDates:['2026-10-12']},
+ industries:{latestDate:'2026-10-13',stale:false,calendarVerified:true,missingDates:['2026-10-12']},
+ benchmarks:{latestDate:'2026-10-12',stale:false,calendarVerified:true,missingDates:[]}}};
+ const html=ctx.cnUpdateStatus({status:{}},{date:'2026-10-09',rows:Array.from({length:31},()=>({level:100,change:1}))},{days:[]},health,new Date("2026-10-13T03:00:00Z"));
+ assert.match(html,/所选日期行业数据齐全/);assert.match(html,/个股数据已过期/);
+ assert.match(html,/行业缺失交易日：2026-10-12/);assert.doesNotMatch(html,/基准指数数据已过期/);
+});
+test('old bundles cannot silently claim verified freshness',()=>{
+ const html=ctx.cnUpdateStatus({status:{}},{date:'2026-10-09',rows:[]},{days:[]});
+ assert.match(html,/尚未核验/);assert.match(html,/role="alert"/);
+});
+
+test('cached healthy bundle becomes stale after Shanghai publication grace',()=>{
+ const health={calendarVerified:true,datasets:{stocks:{latestDate:'2026-10-09',stale:false,calendarVerified:true,missingDates:[]}}};
+ const render=now=>ctx.cnUpdateStatus({status:{}},{date:'2026-10-09',rows:[]},{days:[]},health,new Date(now));
+ assert.doesNotMatch(render('2026-10-12T10:00:00Z'),/个股数据已过期/);
+ assert.match(render('2026-10-12T11:00:00Z'),/个股数据已过期/);
+ assert.match(render('2027-01-05T12:00:00Z'),/交易日历未核验/);
+});
