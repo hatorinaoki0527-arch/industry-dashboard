@@ -41,3 +41,11 @@ test('cached healthy bundle becomes stale after Shanghai publication grace',()=>
  assert.match(render('2026-10-12T11:00:00Z'),/个股数据已过期/);
  assert.match(render('2027-01-05T12:00:00Z'),/交易日历未核验/);
 });
+
+test('National Day closure does not create premature stale warning',()=>{
+ const health={calendarVerified:true,datasets:{stocks:{latestDate:'2026-09-30',calendarVerified:true,missingDates:[]}}};
+ const render=now=>ctx.cnUpdateStatus({status:{}},{date:'2026-09-30',rows:[]},{days:[]},health,new Date(now));
+ assert.doesNotMatch(render('2026-10-07T12:00:00Z'),/个股数据已过期/);
+ assert.doesNotMatch(render('2026-10-08T10:59:59Z'),/个股数据已过期/);
+ assert.match(render('2026-10-08T11:00:00Z'),/应有 2026-10-08/);
+});
