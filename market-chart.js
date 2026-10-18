@@ -4,7 +4,7 @@ const valid=n=>typeof n==='number'&&Number.isFinite(n),esc=s=>String(s??'').repl
 const fmt=(n,d=2)=>valid(n)?n.toLocaleString('zh-CN',{minimumFractionDigits:d,maximumFractionDigits:d}):'—';
 const pct=n=>valid(n)?(n>0?'+':'')+fmt(n)+'%':'—';
 function modeFor(choice,selected){return choice==='auto'?(selected.size===1?'value':'percent'):choice;}
-function label(code,p,o){const stamp=new Date(p[0]+o.offset*3600000).toISOString().replace('T',' ').slice(0,16);return `${o.names[code]} ${fmt(p[2],o.decimals(code))} ${o.unit(code)} · ${pct(p[1])} · ${stamp} ${o.timezone}`;}
+function label(code,p,o){const local=new Date(p[0]+o.offset*3600000).toISOString(),intraday=['1D','5D'].includes(o.range),stamp=intraday?local.replace('T',' ').slice(0,16)+' '+o.timezone:local.slice(0,10)+' · 日线';return `${o.names[code]} ${fmt(p[2],o.decimals(code))} ${o.unit(code)} · ${pct(p[1])} · ${stamp}`;}
 function render(input,o){
  const actual=o.mode==='value',model=(actual?input.slice(0,1):input).filter(s=>s.points.filter(p=>valid(p[0])&&valid(p[2])&&valid(p[actual?2:1])).length>=2);
  if(!model.length)return '<div class="jm-chart-empty">该日期／范围暂无可核验曲线，请选择其他范围。</div>';
